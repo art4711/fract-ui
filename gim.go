@@ -94,6 +94,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	win.Connect("destroy", gtk.MainQuit)
+
+	eb, err := gtk.EventBoxNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	win.Add(eb)
 
 	pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, 256, 256)
 	if err != nil {
@@ -101,7 +108,6 @@ func main() {
 	}
 
 	ma := newma(pb)
-
 	ma.fill()
 
 	im, err := gtk.ImageNewFromPixbuf(pb)
@@ -109,18 +115,30 @@ func main() {
 		log.Fatal(err)
 	}
 
+	eb.Add(im)
+
+	eb.AddEvents(int(gdk.KEY_PRESS_MASK|gdk.SCROLL_MASK))
+
+	log.Printf("eb: %v %v", eb.GetAboveChild(), eb.GetVisibleWindow())
 
 	zw := 3.0
-	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
+//	_, err = eb.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
+	_, err = eb.Connect("scroll-event", func(win *gtk.Window, ev *gdk.Event) {
+log.Print(zw)
 		zw -= 0.05
 		ma.setCoords(-0.5, 0, zw)
 		ma.fill()
 		im.SetFromPixbuf(ma.pb)
 		win.QueueDraw()
 	})
+	if err != nil {
+		log.Fatal("connect: ", err)
+	}
 
-	win.Add(im)
-	win.Connect("destroy", gtk.MainQuit)
+	eb.Connect("scroll-event", func(win *gtk.Window, ev *gdk.Event) {
+		log.Printf("scroll: %v", *ev)
+	})
+
 	win.ShowAll()
 
 	gtk.Main()
