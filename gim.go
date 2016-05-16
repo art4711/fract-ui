@@ -54,6 +54,10 @@ func (ma *ma)setCoords(cx float64, cy float64, zw float64) {
 	ma.sy = (ma.maxy - ma.miny)/float64(h - 1)
 }
 
+func (ma *ma)screenCoords(x float64, y float64) (float64, float64) {
+	return (ma.minx + x * ma.sx), (ma.maxy - y * ma.sy)
+}
+
 func (ma *ma)fill() {
 	nc := ma.pb.GetNChannels()
 	rs := ma.pb.GetRowstride()
@@ -119,14 +123,29 @@ func main() {
 
 	eb.AddEvents(int(gdk.KEY_PRESS_MASK|gdk.SCROLL_MASK))
 
-	log.Printf("eb: %v %v", eb.GetAboveChild(), eb.GetVisibleWindow())
-
 	zw := 3.0
-//	_, err = eb.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
+	cx := -0.5
+	cy := 0.0
+
+	_, err = eb.Connect("button_press_event", func(win *gtk.Window, ev *gdk.Event) {
+		e := &gdk.EventButton{ev}
+		cx, cy = ma.screenCoords(e.X(), e.Y())
+		log.Printf("button %v %v %v %v", e.X(), e.Y(), cx, cy)
+		ma.setCoords(cx, cy, zw)
+		ma.fill()
+		im.SetFromPixbuf(ma.pb)
+		win.QueueDraw()
+	})
 	_, err = eb.Connect("scroll-event", func(win *gtk.Window, ev *gdk.Event) {
-log.Print(zw)
-		zw -= 0.05
-		ma.setCoords(-0.5, 0, zw)
+		es := &gdk.EventScroll{ev}
+		delta := es.DeltaY() * (zw / 5.0)
+		switch es.Direction() {
+		case gdk.SCROLL_UP:
+			zw -= delta
+		case gdk.SCROLL_DOWN:
+			zw += delta
+		}
+		ma.setCoords(cx, cy, zw)
 		ma.fill()
 		im.SetFromPixbuf(ma.pb)
 		win.QueueDraw()
@@ -134,10 +153,6 @@ log.Print(zw)
 	if err != nil {
 		log.Fatal("connect: ", err)
 	}
-
-	eb.Connect("scroll-event", func(win *gtk.Window, ev *gdk.Event) {
-		log.Printf("scroll: %v", *ev)
-	})
 
 	win.ShowAll()
 
