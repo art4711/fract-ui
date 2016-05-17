@@ -57,7 +57,8 @@ func (ma *ma)setCoords(cx float64, cy float64, zw float64) {
 	ma.sx = (ma.maxx - ma.minx)/float64(ma.w - 1)
 	ma.sy = (ma.maxy - ma.miny)/float64(ma.h - 1)
 
-	ma.iter = 100
+	// http://math.stackexchange.com/a/30560
+	ma.iter = int(math.Sqrt(math.Abs(2.0 * math.Sqrt(math.Abs(1 - math.Sqrt(5.0 / zw))))) * 66.5)
 }
 
 func (ma *ma)screenCoords(x float64, y float64) (float64, float64) {
