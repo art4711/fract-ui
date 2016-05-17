@@ -92,9 +92,9 @@ var palette = [...][3]float64{
 
 var log_escape = math.Log(2)
 
-func (ma *ma)getColor(z, c complex128, i int) []byte {
+func (ma *ma)getColor(z, c complex128, i int) (byte, byte, byte) {
 	if i == ma.iter {
-		return []byte{0, 0, 0}
+		return 0, 0, 0
 	}
 	for extra := 0; extra < 3; extra++ {
 		z = z * z + c
@@ -109,9 +109,9 @@ func (ma *ma)getColor(z, c complex128, i int) []byte {
 	c1 := palette[clr1 % len(palette)]
 	c2 := palette[(clr1 + 1) % len(palette)]
 
-	return []byte{ byte(255 * (c1[0] * t1 + c2[0] * t2)),
+	return byte(255 * (c1[0] * t1 + c2[0] * t2)),
 		byte(255 * (c1[1] * t1 + c2[1] * t2)),
-		byte(255 * (c1[2] * t1 + c2[2] * t2)) }
+		byte(255 * (c1[2] * t1 + c2[2] * t2))
 }
 
 func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sync.WaitGroup) {
@@ -130,7 +130,7 @@ func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sy
 				}
 				z = z * z + c
 			}
-			copy(px[o:], ma.getColor(z, c, i))
+			px[o], px[o + 1], px[o + 2] = ma.getColor(z, c, i)
 		}
 	}
 	wg.Done()
