@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/cmplx"
 	"fmt"
+	"math"
 )
 
 type ma struct {
@@ -63,6 +64,39 @@ func (ma *ma)screenCoords(x float64, y float64) (float64, float64) {
 	return (ma.minx + x * ma.sx), (ma.maxy - y * ma.sy)
 }
 
+var palette = [...][3]float64{
+	{ 1.0, 0.0, 0.0 },
+	{ 1.0, 1.0, 0.0 },
+	{ 0.0, 1.0, 0.0 },
+	{ 0.0, 1.0, 1.0 },
+	{ 0.0, 0.0, 1.0 },
+	{ 1.0, 0.0, 1.0 },
+}
+
+var log_escape = math.Log(2)
+
+func (ma *ma)getColor(z, c complex128, i int) []byte {
+	if i == ma.iter {
+		return []byte{0, 0, 0}
+	}
+	for extra := 0; extra < 3; extra++ {
+		z = z * z + c
+		i++
+	}
+	mu := float64(i + 1) - math.Log(math.Log(cmplx.Abs(z))) / log_escape
+	clr1 := int(mu)
+
+	t2 := mu - float64(clr1)
+	t1 := 1.0 - t2
+
+	c1 := palette[clr1 % len(palette)]
+	c2 := palette[(clr1 + 1) % len(palette)]
+
+	return []byte{ byte(255 * (c1[0] * t1 + c2[0] * t2)),
+		byte(255 * (c1[1] * t1 + c2[1] * t2)),
+		byte(255 * (c1[2] * t1 + c2[2] * t2)) }
+}
+
 func (ma *ma)redraw() {
 	nc := ma.pb.GetNChannels()
 	rs := ma.pb.GetRowstride()
@@ -84,15 +118,7 @@ func (ma *ma)redraw() {
 				z = z * z + c
 			}
 
-			rc := byte(0)
-			if i < ma.iter {
-				c := 1.0 - float64(i) / float64(ma.iter)
-				rc = byte(c * 255)
-			}
-
-			px[o + 0] = rc
-			px[o + 1] = rc
-			px[o + 2] = rc
+			copy(px[o:], ma.getColor(z, c, i))
 		}
 	}
 }
