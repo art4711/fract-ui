@@ -27,7 +27,7 @@ type ma struct {
 	w int
 
 	label struct {
-		l, r, t, b *gtk.Label
+		l, r, t, b, i *gtk.Label
 	}
 }
 
@@ -128,6 +128,7 @@ func (ma *ma)updateLabels() {
 	ma.label.r.SetText(fmt.Sprintf("%6.4E", ma.maxx))
 	ma.label.t.SetText(fmt.Sprintf("%6.4E", ma.miny))
 	ma.label.b.SetText(fmt.Sprintf("%6.4E", ma.maxy))
+	ma.label.i.SetText(fmt.Sprintf("%d", ma.iter))
 }
 
 func (ma *ma)widget() gtk.IWidget {
@@ -147,6 +148,7 @@ func (ma *ma)widget() gtk.IWidget {
 	ma.label.r = label(ph)
 	ma.label.t = label(ph)
 	ma.label.b = label(ph)
+	ma.label.i = label("000000")
 
 	ma.updateLabels()
 
@@ -154,10 +156,12 @@ func (ma *ma)widget() gtk.IWidget {
 	gr.Attach(label("maxx:"), 0, 1, 1, 1)
 	gr.Attach(label("miny:"), 0, 2, 1, 1)
 	gr.Attach(label("maxy:"), 0, 3, 1, 1)
+	gr.Attach(label("iter:"), 0, 4, 1, 1)
 	gr.Attach(ma.label.l, 1, 0, 1, 1)
 	gr.Attach(ma.label.r, 1, 1, 1, 1)
-	gr.Attach(ma.label.b, 1, 3, 1, 1)
 	gr.Attach(ma.label.t, 1, 2, 1, 1)
+	gr.Attach(ma.label.b, 1, 3, 1, 1)
+	gr.Attach(ma.label.i, 1, 4, 1, 1)
 
 	hb.PackStart(gr, false, false, 0)
 
