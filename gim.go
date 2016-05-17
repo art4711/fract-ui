@@ -202,7 +202,11 @@ func (ma *ma)pictureWidget() gtk.IWidget {
 	})
 	_, err = eb.Connect("scroll-event", func(win *gtk.Window, ev *gdk.Event) {
 		es := &gdk.EventScroll{ev}
-		delta := es.DeltaY() * (zw / 5.0)
+		delta := es.DeltaY()
+		if delta > 0.5 {
+			delta = 0.5
+		}
+		delta *= (zw / 5.0)
 		switch es.Direction() {
 		case gdk.SCROLL_UP:
 			zw -= delta
