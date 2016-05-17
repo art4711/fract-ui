@@ -67,7 +67,7 @@ func (ma *ma)setCoords(cx float64, cy float64, zw float64) {
 }
 
 func (ma *ma)screenCoords(x float64, y float64) (float64, float64) {
-	return (ma.minx + x * ma.sx), (ma.maxy - y * ma.sy)
+	return (ma.minx + x * ma.sx), (ma.miny + y * ma.sy)
 }
 
 var palette = [...][3]float64{
@@ -102,7 +102,7 @@ func (ma *ma)getColor(z, c complex128, i int) (byte, byte, byte) {
 
 func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sync.WaitGroup) {
 	for y := starty; y < endy; y++ {
-		cy := ma.maxy - float64(y) * ma.sy
+		cy := ma.miny + float64(y) * ma.sy
 		for x := 0; x < ma.w; x++ {
 			cx := ma.minx + float64(x) * ma.sx
 			o := y * rs + x * nc
@@ -223,18 +223,26 @@ func (ma *ma)pictureWidget() gtk.IWidget {
 		redraw()
 	})
 	_, err = eb.Connect("scroll-event", func(win *gtk.Window, ev *gdk.Event) {
-		es := &gdk.EventScroll{ev}
-		delta := es.DeltaY()
+		e := &gdk.EventScroll{ev}
+		delta := e.DeltaY()
 		if delta > 0.5 {
 			delta = 0.5
 		}
 		delta *= (zw / 5.0)
-		switch es.Direction() {
+		nzw := zw
+		switch e.Direction() {
 		case gdk.SCROLL_UP:
-			zw -= delta
+			nzw -= delta
 		case gdk.SCROLL_DOWN:
-			zw += delta
+			nzw += delta
 		}
+
+		// We want the screen to canvas translated coordinate be the same before and after the zoom.
+		// This means: ominx + EX * osx = nminx + EX * nsx  (o-prefix is old, n is new) after some
+		// algebra we get this:
+		cx = cx - zw / 2.0 + e.X() * zw / float64(ma.w - 1) + nzw / 2.0 - e.X() * nzw / float64(ma.w - 1)
+		cy = cy - zw / 2.0 + e.Y() * zw / float64(ma.h - 1) + nzw / 2.0 - e.Y() * nzw / float64(ma.h - 1)
+		zw = nzw
 		redraw()
 	})
 	if err != nil {
