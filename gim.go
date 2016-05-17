@@ -92,19 +92,11 @@ func (ma *ma)fill() {
 	}
 }
 
-func main() {
-	gtk.Init(nil)
-	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	if err != nil {
-		log.Fatal(err)
-	}
-	win.Connect("destroy", gtk.MainQuit)
-
+func buildma() *gtk.EventBox {
 	eb, err := gtk.EventBoxNew()
 	if err != nil {
 		log.Fatal(err)
 	}
-	win.Add(eb)
 
 	pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, 256, 256)
 	if err != nil {
@@ -112,7 +104,6 @@ func main() {
 	}
 
 	ma := newma(pb)
-	ma.fill()
 
 	im, err := gtk.ImageNewFromPixbuf(pb)
 	if err != nil {
@@ -121,20 +112,25 @@ func main() {
 
 	eb.Add(im)
 
-	eb.AddEvents(int(gdk.KEY_PRESS_MASK|gdk.SCROLL_MASK))
+	eb.AddEvents(int(gdk.SCROLL_MASK))
 
 	zw := 3.0
 	cx := -0.5
 	cy := 0.0
 
-	_, err = eb.Connect("button_press_event", func(win *gtk.Window, ev *gdk.Event) {
-		e := &gdk.EventButton{ev}
-		cx, cy = ma.screenCoords(e.X(), e.Y())
-		log.Printf("button %v %v %v %v", e.X(), e.Y(), cx, cy)
+	redraw := func() {
 		ma.setCoords(cx, cy, zw)
 		ma.fill()
 		im.SetFromPixbuf(ma.pb)
-		win.QueueDraw()
+		eb.QueueDraw()
+	}
+
+	redraw()
+
+	_, err = eb.Connect("button_press_event", func(win *gtk.Window, ev *gdk.Event) {
+		e := &gdk.EventButton{ev}
+		cx, cy = ma.screenCoords(e.X(), e.Y())
+		redraw()
 	})
 	_, err = eb.Connect("scroll-event", func(win *gtk.Window, ev *gdk.Event) {
 		es := &gdk.EventScroll{ev}
@@ -145,15 +141,23 @@ func main() {
 		case gdk.SCROLL_DOWN:
 			zw += delta
 		}
-		ma.setCoords(cx, cy, zw)
-		ma.fill()
-		im.SetFromPixbuf(ma.pb)
-		win.QueueDraw()
+		redraw()
 	})
 	if err != nil {
 		log.Fatal("connect: ", err)
 	}
+	return eb
+}
 
+func main() {
+	gtk.Init(nil)
+	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	win.Connect("destroy", gtk.MainQuit)
+
+	win.Add(buildma())
 	win.ShowAll()
 
 	gtk.Main()
