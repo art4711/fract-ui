@@ -141,20 +141,30 @@ func (ma *ma)redraw() {
 	ma.lastDuration = time.Since(startt)
 }
 
+func label(s string, w int) *gtk.Label {
+	l, err := gtk.LabelNew(s)
+	if err != nil {
+		log.Fatal(err)
+	}
+	l.SetLineWrap(false)
+	l.SetMaxWidthChars(w)
+	return l
+}
+
 func (ma *ma)updateLabels(gr *gtk.Grid) {
 	if gr != nil {
-		ma.label.l = label("")
-		ma.label.r = label("")
-		ma.label.t = label("")
-		ma.label.b = label("")
-		ma.label.i = label("")
-		ma.label.d = label("")
-		gr.Attach(label("minx:"), 0, 0, 1, 1)
-		gr.Attach(label("maxx:"), 0, 1, 1, 1)
-		gr.Attach(label("miny:"), 0, 2, 1, 1)
-		gr.Attach(label("maxy:"), 0, 3, 1, 1)
-		gr.Attach(label("iter:"), 0, 4, 1, 1)
-		gr.Attach(label("time:"), 0, 5, 1, 1)
+		ma.label.l = label("", 10)
+		ma.label.r = label("", 10)
+		ma.label.t = label("", 10)
+		ma.label.b = label("", 10)
+		ma.label.i = label("", 10)
+		ma.label.d = label("", 10)
+		gr.Attach(label("minx:", 5), 0, 0, 1, 1)
+		gr.Attach(label("maxx:", 5), 0, 1, 1, 1)
+		gr.Attach(label("miny:", 5), 0, 2, 1, 1)
+		gr.Attach(label("maxy:", 5), 0, 3, 1, 1)
+		gr.Attach(label("iter:", 5), 0, 4, 1, 1)
+		gr.Attach(label("time:", 5), 0, 5, 1, 1)
 		gr.Attach(ma.label.l, 1, 0, 1, 1)
 		gr.Attach(ma.label.r, 1, 1, 1, 1)
 		gr.Attach(ma.label.t, 1, 2, 1, 1)
@@ -162,10 +172,10 @@ func (ma *ma)updateLabels(gr *gtk.Grid) {
 		gr.Attach(ma.label.i, 1, 4, 1, 1)
 		gr.Attach(ma.label.d, 1, 5, 1, 1)
 	}
-	ma.label.l.SetText(fmt.Sprintf("%6.4E", ma.minx))
-	ma.label.r.SetText(fmt.Sprintf("%6.4E", ma.maxx))
-	ma.label.t.SetText(fmt.Sprintf("%6.4E", ma.miny))
-	ma.label.b.SetText(fmt.Sprintf("%6.4E", ma.maxy))
+	ma.label.l.SetText(fmt.Sprintf("%8.4E", ma.minx))
+	ma.label.r.SetText(fmt.Sprintf("%8.4E", ma.maxx))
+	ma.label.t.SetText(fmt.Sprintf("%8.4E", ma.miny))
+	ma.label.b.SetText(fmt.Sprintf("%8.4E", ma.maxy))
 	ma.label.i.SetText(fmt.Sprintf("%d", ma.iter))
 	ma.label.d.SetText(fmt.Sprintf("%v", ma.lastDuration))
 }
@@ -249,14 +259,6 @@ func (ma *ma)pictureWidget() gtk.IWidget {
 		log.Fatal("connect: ", err)
 	}
 	return eb
-}
-
-func label(s string) *gtk.Label {
-	l, err := gtk.LabelNew(s)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return l
 }
 
 func main() {
