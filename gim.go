@@ -239,20 +239,22 @@ func (ma *ma)pictureWidget() gtk.IWidget {
 			delta = 0.5
 		}
 		delta *= (zw / 5.0)
-		nzw := zw
+
 		switch e.Direction() {
 		case gdk.SCROLL_UP:
-			nzw -= delta
+			delta = -delta
 		case gdk.SCROLL_DOWN:
-			nzw += delta
+			// nothing
+		default:
+			delta = 0
 		}
 
 		// We want the screen to canvas translated coordinate be the same before and after the zoom.
 		// This means: ominx + EX * osx = nminx + EX * nsx  (o-prefix is old, n is new) after some
 		// algebra we get this:
-		cx = cx - zw / 2.0 + nzw / 2.0 + e.X() * (zw - nzw) / float64(ma.w - 1)
-		cy = cy - zw / 2.0 + nzw / 2.0 + e.Y() * (zw - nzw) / float64(ma.h - 1)
-		zw = nzw
+		cx += delta * (0.5 - e.X() / float64(ma.w - 1))
+		cy += delta * (0.5 - e.Y() / float64(ma.h - 1))
+		zw += delta
 		redraw()
 	})
 	if err != nil {
