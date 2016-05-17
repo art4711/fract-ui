@@ -240,8 +240,8 @@ func (ma *ma)pictureWidget() gtk.IWidget {
 		// We want the screen to canvas translated coordinate be the same before and after the zoom.
 		// This means: ominx + EX * osx = nminx + EX * nsx  (o-prefix is old, n is new) after some
 		// algebra we get this:
-		cx = cx - zw / 2.0 + e.X() * zw / float64(ma.w - 1) + nzw / 2.0 - e.X() * nzw / float64(ma.w - 1)
-		cy = cy - zw / 2.0 + e.Y() * zw / float64(ma.h - 1) + nzw / 2.0 - e.Y() * nzw / float64(ma.h - 1)
+		cx = cx - zw / 2.0 + nzw / 2.0 + e.X() * (zw - nzw) / float64(ma.w - 1)
+		cy = cy - zw / 2.0 + nzw / 2.0 + e.Y() * (zw - nzw) / float64(ma.h - 1)
 		zw = nzw
 		redraw()
 	})
