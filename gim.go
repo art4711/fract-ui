@@ -5,6 +5,7 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 	"log"
 	"math/cmplx"
+	"fmt"
 )
 
 type ma struct {
@@ -23,42 +24,46 @@ type ma struct {
 
 	h int
 	w int
+
+	label struct {
+		l, r, t, b *gtk.Label
+	}
 }
 
-func newma(pb *gdk.Pixbuf) *ma {
-	ma := &ma{ pb: pb }
+func newma() *ma {
+	ma := &ma{}
 
-	w := pb.GetWidth()
-	h := pb.GetHeight()
+	pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, 256, 256)
+	if err != nil {
+		log.Fatal("pixbuf: ", err)
+	}
 
+	ma.pb = pb
 	ma.setCoords(-0.5, 0.0, 3.0)
-
-	ma.h = h
-	ma.w = w
-
-	ma.iter = 100
 
 	return ma
 }
 
 func (ma *ma)setCoords(cx float64, cy float64, zw float64) {
-	w := ma.pb.GetWidth()
-	h := ma.pb.GetHeight()
+	ma.w = ma.pb.GetWidth()
+	ma.h = ma.pb.GetHeight()
 
 	ma.minx = cx - (zw / 2)
 	ma.maxx = cx + (zw / 2)
-	ma.miny = cy - ((ma.maxx - ma.minx) * float64(h) / float64(w) / 2)
-	ma.maxy = cy + ((ma.maxx - ma.minx) * float64(h) / float64(w) / 2)
+	ma.miny = cy - ((ma.maxx - ma.minx) * float64(ma.h) / float64(ma.w) / 2)
+	ma.maxy = cy + ((ma.maxx - ma.minx) * float64(ma.h) / float64(ma.w) / 2)
 
-	ma.sx = (ma.maxx - ma.minx)/float64(w - 1)
-	ma.sy = (ma.maxy - ma.miny)/float64(h - 1)
+	ma.sx = (ma.maxx - ma.minx)/float64(ma.w - 1)
+	ma.sy = (ma.maxy - ma.miny)/float64(ma.h - 1)
+
+	ma.iter = 100
 }
 
 func (ma *ma)screenCoords(x float64, y float64) (float64, float64) {
 	return (ma.minx + x * ma.sx), (ma.maxy - y * ma.sy)
 }
 
-func (ma *ma)fill() {
+func (ma *ma)redraw() {
 	nc := ma.pb.GetNChannels()
 	rs := ma.pb.GetRowstride()
 	px := ma.pb.GetPixels()
@@ -81,7 +86,7 @@ func (ma *ma)fill() {
 
 			rc := byte(0)
 			if i < ma.iter {
-				c := float64(i) / float64(ma.iter)
+				c := 1.0 - float64(i) / float64(ma.iter)
 				rc = byte(c * 255)
 			}
 
@@ -92,20 +97,56 @@ func (ma *ma)fill() {
 	}
 }
 
-func buildma() *gtk.EventBox {
+func (ma *ma)updateLabels() {
+	ma.label.l.SetText(fmt.Sprintf("%6.4E", ma.minx))
+	ma.label.r.SetText(fmt.Sprintf("%6.4E", ma.maxx))
+	ma.label.t.SetText(fmt.Sprintf("%6.4E", ma.miny))
+	ma.label.b.SetText(fmt.Sprintf("%6.4E", ma.maxy))
+}
+
+func (ma *ma)widget() gtk.IWidget {
+	hb, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	gr, err := gtk.GridNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ph := fmt.Sprintf("%6.4E", 1.0)
+
+	ma.label.l = label(ph)
+	ma.label.r = label(ph)
+	ma.label.t = label(ph)
+	ma.label.b = label(ph)
+
+	ma.updateLabels()
+
+	gr.Attach(label("minx:"), 0, 0, 1, 1)
+	gr.Attach(label("maxx:"), 0, 1, 1, 1)
+	gr.Attach(label("miny:"), 0, 2, 1, 1)
+	gr.Attach(label("maxy:"), 0, 3, 1, 1)
+	gr.Attach(ma.label.l, 1, 0, 1, 1)
+	gr.Attach(ma.label.r, 1, 1, 1, 1)
+	gr.Attach(ma.label.b, 1, 3, 1, 1)
+	gr.Attach(ma.label.t, 1, 2, 1, 1)
+
+	hb.PackStart(gr, false, false, 0)
+
+	hb.PackEnd(ma.pictureWidget(), true, false, 0)
+
+	return hb
+}
+
+func (ma *ma)pictureWidget() gtk.IWidget {
 	eb, err := gtk.EventBoxNew()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, 256, 256)
-	if err != nil {
-		log.Fatal("pixbuf: ", err)
-	}
-
-	ma := newma(pb)
-
-	im, err := gtk.ImageNewFromPixbuf(pb)
+	im, err := gtk.ImageNewFromPixbuf(ma.pb)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -120,7 +161,8 @@ func buildma() *gtk.EventBox {
 
 	redraw := func() {
 		ma.setCoords(cx, cy, zw)
-		ma.fill()
+		ma.redraw()
+		ma.updateLabels()
 		im.SetFromPixbuf(ma.pb)
 		eb.QueueDraw()
 	}
@@ -149,6 +191,14 @@ func buildma() *gtk.EventBox {
 	return eb
 }
 
+func label(s string) *gtk.Label {
+	l, err := gtk.LabelNew(s)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return l
+}
+
 func main() {
 	gtk.Init(nil)
 	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
@@ -157,7 +207,9 @@ func main() {
 	}
 	win.Connect("destroy", gtk.MainQuit)
 
-	win.Add(buildma())
+	ma := newma()
+
+	win.Add(ma.widget())
 	win.ShowAll()
 
 	gtk.Main()
