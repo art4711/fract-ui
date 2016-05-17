@@ -7,6 +7,9 @@ import (
 	"math/cmplx"
 	"fmt"
 	"math"
+	"time"
+	"sync"
+	"runtime"
 )
 
 type ma struct {
@@ -26,8 +29,10 @@ type ma struct {
 	h int
 	w int
 
+	lastDuration time.Duration
+
 	label struct {
-		l, r, t, b, i *gtk.Label
+		l, r, t, b, i, d *gtk.Label
 	}
 }
 
@@ -65,13 +70,24 @@ func (ma *ma)screenCoords(x float64, y float64) (float64, float64) {
 	return (ma.minx + x * ma.sx), (ma.maxy - y * ma.sy)
 }
 
+/*
 var palette = [...][3]float64{
 	{ 1.0, 0.0, 0.0 },
 	{ 1.0, 1.0, 0.0 },
-/*	{ 0.0, 1.0, 0.0 },*/
+	{ 0.0, 1.0, 0.0 },
 	{ 0.0, 1.0, 1.0 },
-/*	{ 0.0, 0.0, 1.0 },
-	{ 1.0, 0.0, 1.0 },*/
+	{ 0.0, 0.0, 1.0 },
+	{ 1.0, 0.0, 1.0 },
+}
+*/
+
+var palette = [...][3]float64{
+	{ 1.0, 0.0, 0.0 },
+	{ 1.0, 0.5, 0.0 },
+	{ 1.0, 1.0, 0.0 },
+	{ 0.5, 1.0, 0.5 },
+	{ 0.0, 1.0, 1.0 },
+	{ 0.5, 0.5, 0.5 },
 }
 
 var log_escape = math.Log(2)
@@ -98,12 +114,8 @@ func (ma *ma)getColor(z, c complex128, i int) []byte {
 		byte(255 * (c1[2] * t1 + c2[2] * t2)) }
 }
 
-func (ma *ma)redraw() {
-	nc := ma.pb.GetNChannels()
-	rs := ma.pb.GetRowstride()
-	px := ma.pb.GetPixels()
-
-	for y := 0; y < ma.h; y++ {
+func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sync.WaitGroup) {
+	for y := starty; y < endy; y++ {
 		cy := ma.maxy - float64(y) * ma.sy
 		for x := 0; x < ma.w; x++ {
 			cx := ma.minx + float64(x) * ma.sx
@@ -118,10 +130,29 @@ func (ma *ma)redraw() {
 				}
 				z = z * z + c
 			}
-
 			copy(px[o:], ma.getColor(z, c, i))
 		}
 	}
+	wg.Done()
+}
+
+func (ma *ma)redraw() {
+	nc := ma.pb.GetNChannels()
+	rs := ma.pb.GetRowstride()
+	px := ma.pb.GetPixels()
+
+	startt := time.Now()
+
+	var wg sync.WaitGroup
+
+	steps := runtime.NumCPU()
+	for i := 0; i < steps; i++ {
+		wg.Add(1)
+		go ma.redrawRange(i * ma.h / steps, (i + 1) * ma.h / steps, nc, rs, px, &wg)
+	}
+
+	wg.Wait()
+	ma.lastDuration = time.Since(startt)
 }
 
 func (ma *ma)updateLabels() {
@@ -130,6 +161,7 @@ func (ma *ma)updateLabels() {
 	ma.label.t.SetText(fmt.Sprintf("%6.4E", ma.miny))
 	ma.label.b.SetText(fmt.Sprintf("%6.4E", ma.maxy))
 	ma.label.i.SetText(fmt.Sprintf("%d", ma.iter))
+	ma.label.d.SetText(fmt.Sprintf("%v", ma.lastDuration))
 }
 
 func (ma *ma)widget() gtk.IWidget {
@@ -150,6 +182,7 @@ func (ma *ma)widget() gtk.IWidget {
 	ma.label.t = label(ph)
 	ma.label.b = label(ph)
 	ma.label.i = label("000000")
+	ma.label.d = label("0")
 
 	ma.updateLabels()
 
@@ -158,11 +191,13 @@ func (ma *ma)widget() gtk.IWidget {
 	gr.Attach(label("miny:"), 0, 2, 1, 1)
 	gr.Attach(label("maxy:"), 0, 3, 1, 1)
 	gr.Attach(label("iter:"), 0, 4, 1, 1)
+	gr.Attach(label("time:"), 0, 5, 1, 1)
 	gr.Attach(ma.label.l, 1, 0, 1, 1)
 	gr.Attach(ma.label.r, 1, 1, 1, 1)
 	gr.Attach(ma.label.t, 1, 2, 1, 1)
 	gr.Attach(ma.label.b, 1, 3, 1, 1)
 	gr.Attach(ma.label.i, 1, 4, 1, 1)
+	gr.Attach(ma.label.d, 1, 5, 1, 1)
 
 	hb.PackStart(gr, false, false, 0)
 
@@ -235,6 +270,7 @@ func label(s string) *gtk.Label {
 }
 
 func main() {
+	runtime.LockOSThread()
 	gtk.Init(nil)
 	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
