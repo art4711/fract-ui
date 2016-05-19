@@ -33,10 +33,6 @@ type ma struct {
 
 	LastDuration time.Duration
 
-	label struct {
-		l, r, t, b, i, d *gtk.Label
-	}
-
 	dl dataLabels
 }
 
