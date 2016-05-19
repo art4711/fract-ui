@@ -5,7 +5,7 @@ import (
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"log"
-	"math/cmplx"
+//	"math/cmplx"
 	"fmt"
 	"math"
 	"time"
@@ -69,12 +69,8 @@ var palette = [...][3]float64{
 
 var log_escape = math.Log(2)
 
-func (ma *ma)getColor(z, c complex128, i int) (byte, byte, byte) {
-	for extra := 0; extra < 3; extra++ {
-		z = z * z + c
-		i++
-	}
-	mu := float64(i + 1) - math.Log(math.Log(cmplx.Abs(z))) / log_escape
+func getColor(abs float64, i int) (byte, byte, byte) {
+	mu := float64(i + 1) - math.Log(math.Log(abs)) / log_escape
 	mu /= 16
 	clr1 := int(mu)
 
@@ -100,8 +96,10 @@ func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sy
 			z := c
 			px[o], px[o + 1], px[o +2] = 0, 0, 0
 			for i := 0; i < ma.Iter; i++ {
-				if cmplx.Abs(z) > 2.0 {
-					px[o], px[o + 1], px[o + 2] = ma.getColor(z, c, i)
+				re, im := real(z), imag(z)
+				l := re * re + im * im
+				if l > 4.0 {
+					px[o], px[o + 1], px[o + 2] = getColor(l, i)
 					break
 				}
 				z = z * z + c
@@ -110,6 +108,44 @@ func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sy
 	}
 	wg.Done()
 }
+
+/* slightly faster, but I don't like it.
+func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sync.WaitGroup) {
+	for y := starty; y < endy; y++ {
+		cr := ma.Miny + float64(y) * ma.sy
+		for x := 0; x < ma.w; x++ {
+			ci := ma.Minx + float64(x) * ma.sx
+			o := y * rs + x * nc
+
+			zi := ci
+			zr := cr
+			px[o], px[o + 1], px[o +2] = 0, 0, 0
+			for i := 0; i < ma.Iter; i++ {
+				zr2 := zr * zr
+				zi2 := zi * zi
+				l := zr2 + zi2
+				if l > 4.0 {
+					mu := float64(i + 1) - math.Log(math.Log(zr2 + zi2)) / log_escape
+					mu /= 16
+					clr1 := int(mu)
+					t2 := mu - float64(clr1)
+					t1 := 1.0 - t2
+					c1 := palette[clr1 % len(palette)]
+					c2 := palette[(clr1 + 1) % len(palette)]
+					px[o] = byte(255 * (c1[0] * t1 + c2[0] * t2))
+					px[o + 1] = byte(255 * (c1[1] * t1 + c2[1] * t2))
+					px[o + 2] = byte(255 * (c1[2] * t1 + c2[2] * t2))
+					break
+				}
+				zr = cr + 2.0 * zi * zr
+				zi = ci + zi2 - zr2
+			}
+		}
+	}
+	wg.Done()
+}
+*/
+
 
 func (ma *ma)redraw() {
 	nc := ma.pb.GetNChannels()
