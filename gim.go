@@ -130,27 +130,40 @@ func (ma *ma)redraw() {
 	ma.LastDuration = time.Since(startt)
 }
 
-type dataLabels map[string]*struct {
+type dataLabels []struct {
+	name string
 	fmt string
-	label *gtk.Label
-	data interface{}
+	labelName string
+	keyLabel *gtk.Label
+	valLabel *gtk.Label
 }
 
-func (dl *dataLabels)addBuilder(b *gtk.Builder) {
-	for ln, d := range *dl {
-		w, err := b.GetObject(ln)
+func (dl *dataLabels)populate(gr *gtk.Grid) {
+	l := func(s string) *gtk.Label {
+		label, err := gtk.LabelNew(s)
 		if err != nil {
-			log.Fatalf("label object not found: %s", ln)
+			log.Fatal(err)
 		}
-		d.label = w.(*gtk.Label)
+		label.SetWidthChars(10)
+		return label
+	}
+	for i := range *dl {
+		ln := (*dl)[i].labelName
+		if ln == "" {
+			ln = (*dl)[i].name
+		}
+		(*dl)[i].keyLabel = l(ln)
+		gr.Attach((*dl)[i].keyLabel, 0, i, 1, 1)
+		(*dl)[i].valLabel = l("")
+		gr.Attach((*dl)[i].valLabel, 1, i, 1, 1)
 	}
 }
 
 func (dl dataLabels)update(obj interface{}) {
 	v := reflect.ValueOf(obj)
 	
-	for ln, d := range dl {
-		d.label.SetText(fmt.Sprintf(d.fmt, v.FieldByName(ln).Interface()))
+	for _, d := range dl {
+		d.valLabel.SetText(fmt.Sprintf(d.fmt, v.FieldByName(d.name).Interface()))
 	}
 }
 
@@ -179,127 +192,6 @@ const build = `
 
    <child>
      <object class="GtkGrid" id="labels">
-
-       <child>
-         <object class="GtkLabel">
-           <property name="width-chars">10</property>
-	   <property name="label">Minx:</property>
-         </object>
-         <packing>
-           <property name="left-attach">0</property>
-           <property name="top-attach">0</property>
-         </packing>
-       </child>
-       <child>
-         <object class="GtkLabel" id="Minx">
-           <property name="width-chars">10</property>
-         </object>
-         <packing>
-           <property name="left-attach">1</property>
-           <property name="top-attach">0</property>
-         </packing>
-       </child>
-
-       <child>
-         <object class="GtkLabel">
-           <property name="width-chars">10</property>
-	   <property name="label">Maxx:</property>
-         </object>
-         <packing>
-           <property name="left-attach">0</property>
-           <property name="top-attach">1</property>
-         </packing>
-       </child>
-       <child>
-         <object class="GtkLabel" id="Maxx">
-           <property name="width-chars">10</property>
-         </object>
-         <packing>
-           <property name="left-attach">1</property>
-           <property name="top-attach">1</property>
-         </packing>
-       </child>
-
-       <child>
-         <object class="GtkLabel">
-           <property name="width-chars">10</property>
-	   <property name="label">Miny:</property>
-         </object>
-         <packing>
-           <property name="left-attach">0</property>
-           <property name="top-attach">2</property>
-         </packing>
-       </child>
-       <child>
-         <object class="GtkLabel" id="Miny">
-           <property name="width-chars">10</property>
-         </object>
-         <packing>
-           <property name="left-attach">1</property>
-           <property name="top-attach">2</property>
-         </packing>
-       </child>
-
-       <child>
-         <object class="GtkLabel">
-           <property name="width-chars">10</property>
-	   <property name="label">Maxy:</property>
-         </object>
-         <packing>
-           <property name="left-attach">0</property>
-           <property name="top-attach">3</property>
-         </packing>
-       </child>
-       <child>
-         <object class="GtkLabel" id="Maxy">
-           <property name="width-chars">10</property>
-         </object>
-         <packing>
-           <property name="left-attach">1</property>
-           <property name="top-attach">3</property>
-         </packing>
-       </child>
-
-       <child>
-         <object class="GtkLabel">
-           <property name="width-chars">10</property>
-	   <property name="label">Iter:</property>
-         </object>
-         <packing>
-           <property name="left-attach">0</property>
-           <property name="top-attach">4</property>
-         </packing>
-       </child>
-       <child>
-         <object class="GtkLabel" id="Iter">
-           <property name="width-chars">10</property>
-         </object>
-         <packing>
-           <property name="left-attach">1</property>
-           <property name="top-attach">4</property>
-         </packing>
-       </child>
-
-       <child>
-         <object class="GtkLabel">
-           <property name="width-chars">10</property>
-	   <property name="label">Time:</property>
-         </object>
-         <packing>
-           <property name="left-attach">0</property>
-           <property name="top-attach">5</property>
-         </packing>
-       </child>
-       <child>
-         <object class="GtkLabel" id="LastDuration">
-           <property name="width-chars">10</property>
-         </object>
-         <packing>
-           <property name="left-attach">1</property>
-           <property name="top-attach">5</property>
-         </packing>
-       </child>
-
      </object>
    </child>
 
@@ -394,14 +286,21 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 	})
 
 	ma.dl = dataLabels{
-		"Minx": { fmt: "%8.4E" },
-		"Maxx": { fmt: "%8.4E" },
-		"Miny": { fmt: "%8.4E" },
-		"Maxy": { fmt: "%8.4E" },
-		"Iter": { fmt: "%d" },
-		"LastDuration": { fmt: "%v" },
+		{ name: "Minx", fmt: "%8.4E" },
+		{ name: "Maxx", fmt: "%8.4E" },
+		{ name: "Miny", fmt: "%8.4E" },
+		{ name: "Maxy", fmt: "%8.4E" },
+		{ name: "Iter", fmt: "%d" },
+		{ name: "LastDuration", fmt: "%v", labelName: "time" },
 	}
-	ma.dl.addBuilder(builder)
+
+	gri, err := builder.GetObject("labels")
+	if err != nil {
+		log.Fatal(err)
+	}
+	gr := gri.(*gtk.Grid)
+
+	ma.dl.populate(gr)
 
 	redraw()
 
