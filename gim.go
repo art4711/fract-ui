@@ -38,15 +38,6 @@ type ma struct {
 
 func newma() *ma {
 	ma := &ma{}
-
-	pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, 256, 256)
-	if err != nil {
-		log.Fatal("pixbuf: ", err)
-	}
-
-	ma.pb = pb
-	ma.setCoords(-0.5, 0.0, 3.0)
-
 	return ma
 }
 
@@ -181,6 +172,7 @@ const build = `
         <child>
           <object class="GtkDrawingArea">
             <signal name="draw" handler="drawArea" />
+            <signal name="size-allocate" handler="resize" />
             <property name="width-request">256</property>
             <property name="height-request">256</property>
           </object>
@@ -189,6 +181,9 @@ const build = `
         <signal name="button_press_event" handler="moveTo" />
         <signal name="scroll-event" handler="zoomTo" />
       </object>
+      <packing>
+        <property name="expand">true</property>
+      </packing>
     </child>
 
    <child>
@@ -351,14 +346,27 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 	cy := 0.0
 
 	redraw := func() {
-		ma.setCoords(cx, cy, zw)
-		ma.redraw()
-		ma.dl.update(*ma)
 		eb.QueueDraw()
 	}
 
+	allocpb := func(nw, nh int) {
+		pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, nw, nh)
+		if err != nil {
+			log.Fatal("pixbuf: ", err)
+		}
+		ma.pb = pb
+	}
+	allocpb(256, 256)
+
 	builder.ConnectSignals(map[string]interface{}{
+		"resize": func(da *gtk.DrawingArea, p uintptr) {
+			rect := gdk.WrapRectangle(p)
+			allocpb(rect.GetWidth(), rect.GetHeight())
+		},
 		"drawArea": func(da *gtk.DrawingArea, cr *cairo.Context) {
+			ma.setCoords(cx, cy, zw)
+			ma.redraw()
+			ma.dl.update(*ma)
 			gtk.GdkCairoSetSourcePixBuf(cr, ma.pb, 0, 0)
 			cr.Paint()
 		},
