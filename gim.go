@@ -63,17 +63,8 @@ func (ma *ma)screenCoords(x float64, y float64) (float64, float64) {
 
 var palette = [...][3]float64{
 	{ 1.00, 0.00, 0.00 },
-	{ 1.00, 0.25, 0.00 },
-	{ 1.00, 0.50, 0.00 },
-	{ 1.00, 0.75, 0.00 },
 	{ 1.00, 1.00, 0.00 },
-	{ 0.25, 1.00, 0.25 },
-	{ 0.50, 1.00, 0.50 },
-	{ 0.75, 1.00, 0.75 },
 	{ 0.00, 1.00, 1.00 },
-	{ 0.25, 0.75, 0.75 },
-	{ 0.50, 0.50, 0.50 },
-	{ 0.75, 0.25, 0.25 },
 }
 
 var log_escape = math.Log(2)
@@ -84,7 +75,7 @@ func (ma *ma)getColor(z, c complex128, i int) (byte, byte, byte) {
 		i++
 	}
 	mu := float64(i + 1) - math.Log(math.Log(cmplx.Abs(z))) / log_escape
-	mu /= 4
+	mu /= 16
 	clr1 := int(mu)
 
 	t2 := mu - float64(clr1)
