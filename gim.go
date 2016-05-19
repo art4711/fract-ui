@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"log"
@@ -10,30 +11,33 @@ import (
 	"time"
 	"sync"
 	"runtime"
+	"reflect"
 )
 
 type ma struct {
 	pb *gdk.Pixbuf
 
-	maxx float64
-	maxy float64
+	Maxx float64
+	Maxy float64
 
-	minx float64
-	miny float64
+	Minx float64
+	Miny float64
 
 	sx float64
 	sy float64
 
-	iter int
+	Iter int
 
 	h int
 	w int
 
-	lastDuration time.Duration
+	LastDuration time.Duration
 
 	label struct {
 		l, r, t, b, i, d *gtk.Label
 	}
+
+	dl dataLabels
 }
 
 func newma() *ma {
@@ -54,20 +58,20 @@ func (ma *ma)setCoords(cx float64, cy float64, zw float64) {
 	ma.w = ma.pb.GetWidth()
 	ma.h = ma.pb.GetHeight()
 
-	ma.minx = cx - (zw / 2)
-	ma.maxx = cx + (zw / 2)
-	ma.miny = cy - ((ma.maxx - ma.minx) * float64(ma.h) / float64(ma.w) / 2)
-	ma.maxy = cy + ((ma.maxx - ma.minx) * float64(ma.h) / float64(ma.w) / 2)
+	ma.Minx = cx - (zw / 2)
+	ma.Maxx = cx + (zw / 2)
+	ma.Miny = cy - ((ma.Maxx - ma.Minx) * float64(ma.h) / float64(ma.w) / 2)
+	ma.Maxy = cy + ((ma.Maxx - ma.Minx) * float64(ma.h) / float64(ma.w) / 2)
 
-	ma.sx = (ma.maxx - ma.minx)/float64(ma.w - 1)
-	ma.sy = (ma.maxy - ma.miny)/float64(ma.h - 1)
+	ma.sx = (ma.Maxx - ma.Minx)/float64(ma.w - 1)
+	ma.sy = (ma.Maxy - ma.Miny)/float64(ma.h - 1)
 
 	// http://math.stackexchange.com/a/30560
-	ma.iter = int(math.Sqrt(math.Abs(2.0 * math.Sqrt(math.Abs(1 - math.Sqrt(5.0 / zw))))) * 66.5)
+	ma.Iter = int(math.Sqrt(math.Abs(2.0 * math.Sqrt(math.Abs(1 - math.Sqrt(5.0 / zw))))) * 66.5)
 }
 
 func (ma *ma)screenCoords(x float64, y float64) (float64, float64) {
-	return (ma.minx + x * ma.sx), (ma.miny + y * ma.sy)
+	return (ma.Minx + x * ma.sx), (ma.Miny + y * ma.sy)
 }
 
 var palette = [...][3]float64{
@@ -109,15 +113,15 @@ func (ma *ma)getColor(z, c complex128, i int) (byte, byte, byte) {
 
 func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sync.WaitGroup) {
 	for y := starty; y < endy; y++ {
-		cy := ma.miny + float64(y) * ma.sy
+		cy := ma.Miny + float64(y) * ma.sy
 		for x := 0; x < ma.w; x++ {
-			cx := ma.minx + float64(x) * ma.sx
+			cx := ma.Minx + float64(x) * ma.sx
 			o := y * rs + x * nc
 
 			c := complex(cx, cy)
 			z := c
 			px[o], px[o + 1], px[o +2] = 0, 0, 0
-			for i := 0; i < ma.iter; i++ {
+			for i := 0; i < ma.Iter; i++ {
 				if cmplx.Abs(z) > 2.0 {
 					px[o], px[o + 1], px[o + 2] = ma.getColor(z, c, i)
 					break
@@ -145,7 +149,7 @@ func (ma *ma)redraw() {
 	}
 
 	wg.Wait()
-	ma.lastDuration = time.Since(startt)
+	ma.LastDuration = time.Since(startt)
 }
 
 func label(s string, w int) *gtk.Label {
@@ -158,33 +162,205 @@ func label(s string, w int) *gtk.Label {
 	return l
 }
 
-func (ma *ma)updateLabels(gr *gtk.Grid) {
-	if gr != nil {
-		ma.label.l = label("", 10)
-		ma.label.r = label("", 10)
-		ma.label.t = label("", 10)
-		ma.label.b = label("", 10)
-		ma.label.i = label("", 10)
-		ma.label.d = label("", 10)
-		gr.Attach(label("minx:", 5), 0, 0, 1, 1)
-		gr.Attach(label("maxx:", 5), 0, 1, 1, 1)
-		gr.Attach(label("miny:", 5), 0, 2, 1, 1)
-		gr.Attach(label("maxy:", 5), 0, 3, 1, 1)
-		gr.Attach(label("iter:", 5), 0, 4, 1, 1)
-		gr.Attach(label("time:", 5), 0, 5, 1, 1)
-		gr.Attach(ma.label.l, 1, 0, 1, 1)
-		gr.Attach(ma.label.r, 1, 1, 1, 1)
-		gr.Attach(ma.label.t, 1, 2, 1, 1)
-		gr.Attach(ma.label.b, 1, 3, 1, 1)
-		gr.Attach(ma.label.i, 1, 4, 1, 1)
-		gr.Attach(ma.label.d, 1, 5, 1, 1)
+type dataLabels map[string]*struct {
+	fmt string
+	label *gtk.Label
+	data interface{}
+}
+
+func (dl *dataLabels)addBuilder(b *gtk.Builder) {
+	for ln, d := range *dl {
+		w, err := b.GetObject(ln)
+		if err != nil {
+			log.Fatalf("label object not found: %s", ln)
+		}
+		d.label = w.(*gtk.Label)
 	}
-	ma.label.l.SetText(fmt.Sprintf("%8.4E", ma.minx))
-	ma.label.r.SetText(fmt.Sprintf("%8.4E", ma.maxx))
-	ma.label.t.SetText(fmt.Sprintf("%8.4E", ma.miny))
-	ma.label.b.SetText(fmt.Sprintf("%8.4E", ma.maxy))
-	ma.label.i.SetText(fmt.Sprintf("%d", ma.iter))
-	ma.label.d.SetText(fmt.Sprintf("%v", ma.lastDuration))
+}
+
+func (dl dataLabels)update(obj interface{}) {
+	v := reflect.ValueOf(obj)
+	
+	for ln, d := range dl {
+		d.label.SetText(fmt.Sprintf(d.fmt, v.FieldByName(ln).Interface()))
+	}
+}
+
+const build = `
+<interface>
+  <object class="GtkBox" id="everything">
+    <property name="orientation">horizontal</property>
+    <child>
+      <object class="GtkDrawingArea">
+        <signal name="draw" handler="drawArea" />
+        <property name="width-request">256</property>
+        <property name="height-request">256</property>
+      </object>
+    </child>
+
+   <child>
+     <object class="GtkGrid" id="labels">
+
+       <child>
+         <object class="GtkLabel">
+           <property name="width-chars">10</property>
+	   <property name="label">Minx:</property>
+         </object>
+         <packing>
+           <property name="left-attach">0</property>
+           <property name="top-attach">0</property>
+         </packing>
+       </child>
+       <child>
+         <object class="GtkLabel" id="Minx">
+           <property name="width-chars">10</property>
+         </object>
+         <packing>
+           <property name="left-attach">1</property>
+           <property name="top-attach">0</property>
+         </packing>
+       </child>
+
+       <child>
+         <object class="GtkLabel">
+           <property name="width-chars">10</property>
+	   <property name="label">Maxx:</property>
+         </object>
+         <packing>
+           <property name="left-attach">0</property>
+           <property name="top-attach">1</property>
+         </packing>
+       </child>
+       <child>
+         <object class="GtkLabel" id="Maxx">
+           <property name="width-chars">10</property>
+         </object>
+         <packing>
+           <property name="left-attach">1</property>
+           <property name="top-attach">1</property>
+         </packing>
+       </child>
+
+       <child>
+         <object class="GtkLabel">
+           <property name="width-chars">10</property>
+	   <property name="label">Miny:</property>
+         </object>
+         <packing>
+           <property name="left-attach">0</property>
+           <property name="top-attach">2</property>
+         </packing>
+       </child>
+       <child>
+         <object class="GtkLabel" id="Miny">
+           <property name="width-chars">10</property>
+         </object>
+         <packing>
+           <property name="left-attach">1</property>
+           <property name="top-attach">2</property>
+         </packing>
+       </child>
+
+       <child>
+         <object class="GtkLabel">
+           <property name="width-chars">10</property>
+	   <property name="label">Maxy:</property>
+         </object>
+         <packing>
+           <property name="left-attach">0</property>
+           <property name="top-attach">3</property>
+         </packing>
+       </child>
+       <child>
+         <object class="GtkLabel" id="Maxy">
+           <property name="width-chars">10</property>
+         </object>
+         <packing>
+           <property name="left-attach">1</property>
+           <property name="top-attach">3</property>
+         </packing>
+       </child>
+
+       <child>
+         <object class="GtkLabel">
+           <property name="width-chars">10</property>
+	   <property name="label">Iter:</property>
+         </object>
+         <packing>
+           <property name="left-attach">0</property>
+           <property name="top-attach">4</property>
+         </packing>
+       </child>
+       <child>
+         <object class="GtkLabel" id="Iter">
+           <property name="width-chars">10</property>
+         </object>
+         <packing>
+           <property name="left-attach">1</property>
+           <property name="top-attach">4</property>
+         </packing>
+       </child>
+
+       <child>
+         <object class="GtkLabel">
+           <property name="width-chars">10</property>
+	   <property name="label">Time:</property>
+         </object>
+         <packing>
+           <property name="left-attach">0</property>
+           <property name="top-attach">5</property>
+         </packing>
+       </child>
+       <child>
+         <object class="GtkLabel" id="LastDuration">
+           <property name="width-chars">10</property>
+         </object>
+         <packing>
+           <property name="left-attach">1</property>
+           <property name="top-attach">5</property>
+         </packing>
+       </child>
+
+     </object>
+   </child>
+
+  </object>
+</interface>
+`
+
+func (ma *ma)buildWidgets() gtk.IWidget {
+	builder, err := gtk.BuilderNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = builder.AddFromString(build)
+	if err != nil {
+		log.Fatal(err)
+	}
+	obj, err := builder.GetObject("everything")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	builder.ConnectSignals(map[string]interface{}{
+		"drawArea": func(da *gtk.DrawingArea, cr *cairo.Context) {
+			gtk.GdkCairoSetSourcePixBuf(cr, ma.pb, 0, 0)
+			cr.Paint()
+		},
+	})
+
+	ma.dl = dataLabels{
+		"Minx": { fmt: "%8.4E" },
+		"Maxx": { fmt: "%8.4E" },
+		"Miny": { fmt: "%8.4E" },
+		"Maxy": { fmt: "%8.4E" },
+		"Iter": { fmt: "%d" },
+		"LastDuration": { fmt: "%v" },
+	}
+	ma.dl.addBuilder(builder)
+	ma.dl.update(*ma)
+
+	return obj.(gtk.IWidget)
 }
 
 func (ma *ma)widget() gtk.IWidget {
@@ -193,14 +369,8 @@ func (ma *ma)widget() gtk.IWidget {
 		log.Fatal(err)
 	}
 	
-	gr, err := gtk.GridNew()
-	if err != nil {
-		log.Fatal(err)
-	}
-	ma.updateLabels(gr)
-
-	hb.PackStart(gr, false, false, 0)
-	hb.PackEnd(ma.pictureWidget(), true, false, 0)
+	hb.PackStart(ma.pictureWidget(), true, false, 0)
+	hb.PackStart(ma.buildWidgets(), false, false, 0)
 
 	return hb
 }
@@ -227,7 +397,7 @@ func (ma *ma)pictureWidget() gtk.IWidget {
 	redraw := func() {
 		ma.setCoords(cx, cy, zw)
 		ma.redraw()
-		ma.updateLabels(nil)
+		ma.dl.update(*ma)
 		im.SetFromPixbuf(ma.pb)
 		eb.QueueDraw()
 	}
