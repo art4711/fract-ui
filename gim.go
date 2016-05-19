@@ -152,16 +152,6 @@ func (ma *ma)redraw() {
 	ma.LastDuration = time.Since(startt)
 }
 
-func label(s string, w int) *gtk.Label {
-	l, err := gtk.LabelNew(s)
-	if err != nil {
-		log.Fatal(err)
-	}
-	l.SetLineWrap(false)
-	l.SetMaxWidthChars(w)
-	return l
-}
-
 type dataLabels map[string]*struct {
 	fmt string
 	label *gtk.Label
@@ -191,10 +181,17 @@ const build = `
   <object class="GtkBox" id="everything">
     <property name="orientation">horizontal</property>
     <child>
-      <object class="GtkDrawingArea">
-        <signal name="draw" handler="drawArea" />
-        <property name="width-request">256</property>
-        <property name="height-request">256</property>
+      <object class="GtkEventBox" id="eb">
+        <child>
+          <object class="GtkDrawingArea">
+            <signal name="draw" handler="drawArea" />
+            <property name="width-request">256</property>
+            <property name="height-request">256</property>
+          </object>
+        </child>
+        <property name="events">GDK_SCROLL_MASK</property>
+        <signal name="button_press_event" handler="moveTo" />
+        <signal name="scroll-event" handler="zoomTo" />
       </object>
     </child>
 
@@ -342,10 +339,62 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 		log.Fatal(err)
 	}
 
+	ebi, err := builder.GetObject("eb")
+	if err != nil {
+		log.Fatal(err)
+	}
+	eb := ebi.(*gtk.EventBox)
+
+	// XXX - how do we set this property in the xml?
+	eb.AddEvents(int(gdk.SCROLL_MASK))
+
+	widget := obj.(gtk.IWidget)
+
+	zw := 3.0
+	cx := -0.5
+	cy := 0.0
+
+	redraw := func() {
+		ma.setCoords(cx, cy, zw)
+		ma.redraw()
+		ma.dl.update(*ma)
+		eb.QueueDraw()
+	}
+
 	builder.ConnectSignals(map[string]interface{}{
 		"drawArea": func(da *gtk.DrawingArea, cr *cairo.Context) {
 			gtk.GdkCairoSetSourcePixBuf(cr, ma.pb, 0, 0)
 			cr.Paint()
+		},
+		"moveTo": func(win *gtk.Window, ev *gdk.Event) {
+			e := &gdk.EventButton{ev}
+			cx, cy = ma.screenCoords(e.X(), e.Y())
+			redraw()
+		},
+		"zoomTo": func(win *gtk.Window, ev *gdk.Event) {
+			e := &gdk.EventScroll{ev}
+			delta := e.DeltaY()
+			if delta > 0.5 {
+				delta = 0.5
+			}
+			delta *= (zw / 5.0)
+
+			switch e.Direction() {
+			case gdk.SCROLL_UP:
+				delta = -delta
+			case gdk.SCROLL_DOWN:
+				// nothing
+			default:
+				delta = 0
+			}
+
+			// We want the screen to canvas translated coordinate be the same before and after the zoom.
+			// This means: ominx + EX * osx = nminx + EX * nsx  (o-prefix is old, n is new) after some
+			// algebra we get this:
+			cx += delta * (0.5 - e.X() / float64(ma.w - 1))
+			cy += delta * (0.5 - e.Y() / float64(ma.h - 1))
+			zw += delta
+			redraw()
 		},
 	})
 
@@ -358,86 +407,10 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 		"LastDuration": { fmt: "%v" },
 	}
 	ma.dl.addBuilder(builder)
-	ma.dl.update(*ma)
-
-	return obj.(gtk.IWidget)
-}
-
-func (ma *ma)widget() gtk.IWidget {
-	hb, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
-	if err != nil {
-		log.Fatal(err)
-	}
-	
-	hb.PackStart(ma.pictureWidget(), true, false, 0)
-	hb.PackStart(ma.buildWidgets(), false, false, 0)
-
-	return hb
-}
-
-func (ma *ma)pictureWidget() gtk.IWidget {
-	eb, err := gtk.EventBoxNew()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	im, err := gtk.ImageNewFromPixbuf(ma.pb)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	eb.Add(im)
-
-	eb.AddEvents(int(gdk.SCROLL_MASK))
-
-	zw := 3.0
-	cx := -0.5
-	cy := 0.0
-
-	redraw := func() {
-		ma.setCoords(cx, cy, zw)
-		ma.redraw()
-		ma.dl.update(*ma)
-		im.SetFromPixbuf(ma.pb)
-		eb.QueueDraw()
-	}
 
 	redraw()
 
-	_, err = eb.Connect("button_press_event", func(win *gtk.Window, ev *gdk.Event) {
-		e := &gdk.EventButton{ev}
-		cx, cy = ma.screenCoords(e.X(), e.Y())
-		redraw()
-	})
-	_, err = eb.Connect("scroll-event", func(win *gtk.Window, ev *gdk.Event) {
-		e := &gdk.EventScroll{ev}
-		delta := e.DeltaY()
-		if delta > 0.5 {
-			delta = 0.5
-		}
-		delta *= (zw / 5.0)
-
-		switch e.Direction() {
-		case gdk.SCROLL_UP:
-			delta = -delta
-		case gdk.SCROLL_DOWN:
-			// nothing
-		default:
-			delta = 0
-		}
-
-		// We want the screen to canvas translated coordinate be the same before and after the zoom.
-		// This means: ominx + EX * osx = nminx + EX * nsx  (o-prefix is old, n is new) after some
-		// algebra we get this:
-		cx += delta * (0.5 - e.X() / float64(ma.w - 1))
-		cy += delta * (0.5 - e.Y() / float64(ma.h - 1))
-		zw += delta
-		redraw()
-	})
-	if err != nil {
-		log.Fatal("connect: ", err)
-	}
-	return eb
+	return widget
 }
 
 func main() {
@@ -451,7 +424,7 @@ func main() {
 
 	ma := newma()
 
-	win.Add(ma.widget())
+	win.Add(ma.buildWidgets())
 	win.ShowAll()
 
 	gtk.Main()
