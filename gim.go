@@ -208,10 +208,6 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 	if err != nil {
 		log.Fatal(err)
 	}
-	obj, err := builder.GetObject("everything")
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	ebi, err := builder.GetObject("eb")
 	if err != nil {
@@ -221,8 +217,6 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 
 	// XXX - how do we set this property in the xml?
 	eb.AddEvents(int(gdk.SCROLL_MASK))
-
-	widget := obj.(gtk.IWidget)
 
 	zw := 3.0
 	cx := -0.5
@@ -304,7 +298,12 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 
 	redraw()
 
-	return widget
+	obj, err := builder.GetObject("everything")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return obj.(gtk.IWidget)
 }
 
 func main() {
