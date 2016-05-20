@@ -16,15 +16,6 @@ import (
 )
 
 type ma struct {
-	Maxx float64 `dl:"%8.4E"`
-	Maxy float64 `dl:"%8.4E"`
-
-	Minx float64 `dl:"%8.4E"`
-	Miny float64 `dl:"%8.4E"`
-
-	sx float64
-	sy float64
-
 	Iter int `dl:"%d"`
 
 	LastDuration time.Duration `dl:"%v,time"`
@@ -61,48 +52,20 @@ func getColor(abs float64, i int) (byte, byte, byte) {
 		byte(255 * (c1[2] * t1 + c2[2] * t2))
 }
 
-func (ma *ma)redrawRange(starty, endy, nc, rs, w int, px []byte, wg *sync.WaitGroup) {
-	for y := starty; y < endy; y++ {
-		cy := ma.Miny + float64(y) * ma.sy
-		for x := 0; x < w; x++ {
-			cx := ma.Minx + float64(x) * ma.sx
-			o := y * rs + x * nc
-
-			c := complex(cx, cy)
-			z := c
-			px[o], px[o + 1], px[o +2] = 0, 0, 0
-			for i := 0; i < ma.Iter; i++ {
-				re, im := real(z), imag(z)
-				l := re * re + im * im
-				if l > 4.0 {
-					px[o], px[o + 1], px[o + 2] = getColor(l, i)
-					break
-				}
-				z = z * z + c
-			}
-		}
-	}
-	wg.Done()
-}
-
 func (ma *ma)redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
 	w := pb.GetWidth()
 	h := pb.GetHeight()
-
-	ma.Minx = cx - (zw / 2)
-	ma.Maxx = cx + (zw / 2)
-	ma.Miny = cy - ((ma.Maxx - ma.Minx) * float64(h) / float64(w) / 2)
-	ma.Maxy = cy + ((ma.Maxx - ma.Minx) * float64(h) / float64(w) / 2)
-
-	ma.sx = (ma.Maxx - ma.Minx)/float64(w - 1)
-	ma.sy = (ma.Maxy - ma.Miny)/float64(h - 1)
-
-	// http://math.stackexchange.com/a/30560
-	ma.Iter = int(math.Sqrt(math.Abs(2.0 * math.Sqrt(math.Abs(1 - math.Sqrt(5.0 / zw))))) * 66.5)
-
 	nc := pb.GetNChannels()
 	rs := pb.GetRowstride()
 	px := pb.GetPixels()
+
+	aspect := float64(h) / float64(w)
+
+	sx := zw / float64(w - 1)
+	sy := zw * aspect / float64(h - 1)
+
+	// http://math.stackexchange.com/a/30560
+	ma.Iter = int(math.Sqrt(math.Abs(2.0 * math.Sqrt(math.Abs(1 - math.Sqrt(5.0 / zw))))) * 66.5)
 
 	startt := time.Now()
 
@@ -111,7 +74,29 @@ func (ma *ma)redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
 	steps := runtime.NumCPU()
 	for i := 0; i < steps; i++ {
 		wg.Add(1)
-		go ma.redrawRange(i * h / steps, (i + 1) * h / steps, nc, rs, w, px, &wg)
+		go func(starty, endy int) {
+			for y := starty; y < endy; y++ {
+				ci := cy - (zw * aspect / 2) + float64(y) * sy
+				for x := 0; x < w; x++ {
+					cr := cx - (zw / 2) + float64(x) * sx
+					o := y * rs + x * nc
+
+					c := complex(cr, ci)
+					z := c
+					px[o], px[o + 1], px[o +2] = 0, 0, 0
+					for i := 0; i < ma.Iter; i++ {
+						re, im := real(z), imag(z)
+						l := re * re + im * im
+						if l > 4.0 {
+							px[o], px[o + 1], px[o + 2] = getColor(l, i)
+							break
+						}
+						z = z * z + c
+					}
+				}
+			}
+			wg.Done()
+		}(i * h / steps, (i + 1) * h / steps)
 	}
 
 	wg.Wait()
