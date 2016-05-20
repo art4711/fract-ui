@@ -16,8 +16,6 @@ import (
 )
 
 type ma struct {
-	pb *gdk.Pixbuf
-
 	Maxx float64 `dl:"%8.4E"`
 	Maxy float64 `dl:"%8.4E"`
 
@@ -29,9 +27,6 @@ type ma struct {
 
 	Iter int `dl:"%d"`
 
-	h int
-	w int
-
 	LastDuration time.Duration `dl:"%v,time"`
 
 	dl dataLabels
@@ -40,26 +35,6 @@ type ma struct {
 func newma() *ma {
 	ma := &ma{}
 	return ma
-}
-
-func (ma *ma)setCoords(cx float64, cy float64, zw float64) {
-	ma.w = ma.pb.GetWidth()
-	ma.h = ma.pb.GetHeight()
-
-	ma.Minx = cx - (zw / 2)
-	ma.Maxx = cx + (zw / 2)
-	ma.Miny = cy - ((ma.Maxx - ma.Minx) * float64(ma.h) / float64(ma.w) / 2)
-	ma.Maxy = cy + ((ma.Maxx - ma.Minx) * float64(ma.h) / float64(ma.w) / 2)
-
-	ma.sx = (ma.Maxx - ma.Minx)/float64(ma.w - 1)
-	ma.sy = (ma.Maxy - ma.Miny)/float64(ma.h - 1)
-
-	// http://math.stackexchange.com/a/30560
-	ma.Iter = int(math.Sqrt(math.Abs(2.0 * math.Sqrt(math.Abs(1 - math.Sqrt(5.0 / zw))))) * 66.5)
-}
-
-func (ma *ma)screenCoords(x float64, y float64) (float64, float64) {
-	return (ma.Minx + x * ma.sx), (ma.Miny + y * ma.sy)
 }
 
 var palette = [...][3]float64{
@@ -86,10 +61,10 @@ func getColor(abs float64, i int) (byte, byte, byte) {
 		byte(255 * (c1[2] * t1 + c2[2] * t2))
 }
 
-func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sync.WaitGroup) {
+func (ma *ma)redrawRange(starty, endy, nc, rs, w int, px []byte, wg *sync.WaitGroup) {
 	for y := starty; y < endy; y++ {
 		cy := ma.Miny + float64(y) * ma.sy
-		for x := 0; x < ma.w; x++ {
+		for x := 0; x < w; x++ {
 			cx := ma.Minx + float64(x) * ma.sx
 			o := y * rs + x * nc
 
@@ -110,48 +85,24 @@ func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sy
 	wg.Done()
 }
 
-/* slightly faster, but I don't like it.
-func (ma *ma)redrawRange(starty int, endy int, nc int, rs int, px []byte, wg *sync.WaitGroup) {
-	for y := starty; y < endy; y++ {
-		cr := ma.Miny + float64(y) * ma.sy
-		for x := 0; x < ma.w; x++ {
-			ci := ma.Minx + float64(x) * ma.sx
-			o := y * rs + x * nc
+func (ma *ma)redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
+	w := pb.GetWidth()
+	h := pb.GetHeight()
 
-			zi := ci
-			zr := cr
-			px[o], px[o + 1], px[o +2] = 0, 0, 0
-			for i := 0; i < ma.Iter; i++ {
-				zr2 := zr * zr
-				zi2 := zi * zi
-				l := zr2 + zi2
-				if l > 4.0 {
-					mu := float64(i + 1) - math.Log(math.Log(zr2 + zi2)) / log_escape
-					mu /= 16
-					clr1 := int(mu)
-					t2 := mu - float64(clr1)
-					t1 := 1.0 - t2
-					c1 := palette[clr1 % len(palette)]
-					c2 := palette[(clr1 + 1) % len(palette)]
-					px[o] = byte(255 * (c1[0] * t1 + c2[0] * t2))
-					px[o + 1] = byte(255 * (c1[1] * t1 + c2[1] * t2))
-					px[o + 2] = byte(255 * (c1[2] * t1 + c2[2] * t2))
-					break
-				}
-				zr = cr + 2.0 * zi * zr
-				zi = ci + zi2 - zr2
-			}
-		}
-	}
-	wg.Done()
-}
-*/
+	ma.Minx = cx - (zw / 2)
+	ma.Maxx = cx + (zw / 2)
+	ma.Miny = cy - ((ma.Maxx - ma.Minx) * float64(h) / float64(w) / 2)
+	ma.Maxy = cy + ((ma.Maxx - ma.Minx) * float64(h) / float64(w) / 2)
 
+	ma.sx = (ma.Maxx - ma.Minx)/float64(w - 1)
+	ma.sy = (ma.Maxy - ma.Miny)/float64(h - 1)
 
-func (ma *ma)redraw() {
-	nc := ma.pb.GetNChannels()
-	rs := ma.pb.GetRowstride()
-	px := ma.pb.GetPixels()
+	// http://math.stackexchange.com/a/30560
+	ma.Iter = int(math.Sqrt(math.Abs(2.0 * math.Sqrt(math.Abs(1 - math.Sqrt(5.0 / zw))))) * 66.5)
+
+	nc := pb.GetNChannels()
+	rs := pb.GetRowstride()
+	px := pb.GetPixels()
 
 	startt := time.Now()
 
@@ -160,7 +111,7 @@ func (ma *ma)redraw() {
 	steps := runtime.NumCPU()
 	for i := 0; i < steps; i++ {
 		wg.Add(1)
-		go ma.redrawRange(i * ma.h / steps, (i + 1) * ma.h / steps, nc, rs, px, &wg)
+		go ma.redrawRange(i * h / steps, (i + 1) * h / steps, nc, rs, w, px, &wg)
 	}
 
 	wg.Wait()
@@ -274,12 +225,17 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 	cx := -0.5
 	cy := 0.0
 
+	var pb *gdk.Pixbuf
+
 	allocpb := func(nw, nh int) {
-		pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, nw, nh)
+		s := nw
+		if s > nh {
+			s = nh
+		}
+		pb, err = gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, s, s)
 		if err != nil {
 			log.Fatal("pixbuf: ", err)
 		}
-		ma.pb = pb
 	}
 	allocpb(256, 256)
 
@@ -289,15 +245,15 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 			allocpb(rect.GetWidth(), rect.GetHeight())
 		},
 		"drawArea": func(da *gtk.DrawingArea, cr *cairo.Context) {
-			ma.setCoords(cx, cy, zw)
-			ma.redraw()
+			ma.redraw(cx, cy, zw, pb)
 			ma.dl.update(*ma)
-			gtk.GdkCairoSetSourcePixBuf(cr, ma.pb, 0, 0)
+			gtk.GdkCairoSetSourcePixBuf(cr, pb, 0, 0)
 			cr.Paint()
 		},
 		"moveTo": func(win *gtk.Window, ev *gdk.Event) {
 			e := &gdk.EventButton{ev}
-			cx, cy = ma.screenCoords(e.X(), e.Y())
+			cx = cx - (zw / 2) + e.X() * zw / float64(pb.GetWidth() - 1)
+			cy = cy - (zw / 2) + e.Y() * zw / float64(pb.GetHeight() - 1)		// assumes square pb (should be w?)
 			eb.QueueDraw()
 		},
 		"zoomTo": func(win *gtk.Window, ev *gdk.Event) {
@@ -318,10 +274,8 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 			}
 
 			// We want the screen to canvas translated coordinate be the same before and after the zoom.
-			// This means: ominx + EX * osx = nminx + EX * nsx  (o-prefix is old, n is new) after some
-			// algebra we get this:
-			cx += delta * (0.5 - e.X() / float64(ma.w - 1))
-			cy += delta * (0.5 - e.Y() / float64(ma.h - 1))
+			cx += delta * (0.5 - e.X() / float64(pb.GetWidth() - 1))
+			cy += delta * (0.5 - e.Y() / float64(pb.GetHeight() - 1)) // wrong - works only on square pb.
 			zw += delta
 			eb.QueueDraw()
 		},
