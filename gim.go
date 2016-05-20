@@ -258,10 +258,6 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 	cx := -0.5
 	cy := 0.0
 
-	redraw := func() {
-		eb.QueueDraw()
-	}
-
 	allocpb := func(nw, nh int) {
 		pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, nw, nh)
 		if err != nil {
@@ -286,7 +282,7 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 		"moveTo": func(win *gtk.Window, ev *gdk.Event) {
 			e := &gdk.EventButton{ev}
 			cx, cy = ma.screenCoords(e.X(), e.Y())
-			redraw()
+			eb.QueueDraw()
 		},
 		"zoomTo": func(win *gtk.Window, ev *gdk.Event) {
 			e := &gdk.EventScroll{ev}
@@ -311,7 +307,7 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 			cx += delta * (0.5 - e.X() / float64(ma.w - 1))
 			cy += delta * (0.5 - e.Y() / float64(ma.h - 1))
 			zw += delta
-			redraw()
+			eb.QueueDraw()
 		},
 	})
 
