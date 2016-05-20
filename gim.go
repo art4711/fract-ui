@@ -12,26 +12,27 @@ import (
 	"sync"
 	"runtime"
 	"reflect"
+	"strings"
 )
 
 type ma struct {
 	pb *gdk.Pixbuf
 
-	Maxx float64
-	Maxy float64
+	Maxx float64 `dl:"%8.4E"`
+	Maxy float64 `dl:"%8.4E"`
 
-	Minx float64
-	Miny float64
+	Minx float64 `dl:"%8.4E"`
+	Miny float64 `dl:"%8.4E"`
 
 	sx float64
 	sy float64
 
-	Iter int
+	Iter int `dl:"%d"`
 
 	h int
 	w int
 
-	LastDuration time.Duration
+	LastDuration time.Duration `dl:"%v,time"`
 
 	dl dataLabels
 }
@@ -166,15 +167,18 @@ func (ma *ma)redraw() {
 	ma.LastDuration = time.Since(startt)
 }
 
-type dataLabels []struct {
+type datalabel struct {
 	name string
 	fmt string
-	labelName string
 	keyLabel *gtk.Label
 	valLabel *gtk.Label
 }
 
-func (dl *dataLabels)populate(gr *gtk.Grid) {
+type dataLabels struct {
+	labels []datalabel
+}
+
+func (dl *dataLabels)populate(src interface{}, gr *gtk.Grid) {
 	l := func(s string) *gtk.Label {
 		label, err := gtk.LabelNew(s)
 		if err != nil {
@@ -183,23 +187,35 @@ func (dl *dataLabels)populate(gr *gtk.Grid) {
 		label.SetWidthChars(10)
 		return label
 	}
-	for i := range *dl {
-		ln := (*dl)[i].labelName
-		if ln == "" {
-			ln = (*dl)[i].name
+
+	srcv := reflect.ValueOf(src)
+	srct := srcv.Type()
+
+	for i := 0; i < srct.NumField(); i++ {
+		ft := srct.Field(i)
+		tags := strings.SplitN(ft.Tag.Get("dl"), ",", 2)
+		if tags[0] == "" {
+			continue
 		}
-		(*dl)[i].keyLabel = l(ln)
-		gr.Attach((*dl)[i].keyLabel, 0, i, 1, 1)
-		(*dl)[i].valLabel = l("")
-		gr.Attach((*dl)[i].valLabel, 1, i, 1, 1)
+
+		ln := ft.Name
+		if len(tags) == 2 {
+			ln = tags[1]
+		}
+		dl.labels = append(dl.labels, datalabel{ fmt: tags[0], name: ft.Name, keyLabel: l(ln), valLabel: l("") })
+	}
+
+	for i := range dl.labels {
+		gr.Attach(dl.labels[i].keyLabel, 0, i, 1, 1)
+		gr.Attach(dl.labels[i].valLabel, 1, i, 1, 1)		
 	}
 }
 
 func (dl dataLabels)update(obj interface{}) {
 	v := reflect.ValueOf(obj)
 	
-	for _, d := range dl {
-		d.valLabel.SetText(fmt.Sprintf(d.fmt, v.FieldByName(d.name).Interface()))
+	for _, l := range dl.labels {
+		l.valLabel.SetText(fmt.Sprintf(l.fmt, v.FieldByName(l.name).Interface()))
 	}
 }
 
@@ -311,24 +327,13 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 		},
 	})
 
-	ma.dl = dataLabels{
-		{ name: "Minx", fmt: "%8.4E" },
-		{ name: "Maxx", fmt: "%8.4E" },
-		{ name: "Miny", fmt: "%8.4E" },
-		{ name: "Maxy", fmt: "%8.4E" },
-		{ name: "Iter", fmt: "%d" },
-		{ name: "LastDuration", fmt: "%v", labelName: "time" },
-	}
-
 	gri, err := builder.GetObject("labels")
 	if err != nil {
 		log.Fatal(err)
 	}
 	gr := gri.(*gtk.Grid)
 
-	ma.dl.populate(gr)
-
-	redraw()
+	ma.dl.populate(*ma, gr)
 
 	obj, err := builder.GetObject("everything")
 	if err != nil {
