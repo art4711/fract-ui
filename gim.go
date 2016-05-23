@@ -17,7 +17,6 @@ import (
 
 type ma struct {
 	Iter int `dl:"%d"`
-
 	LastDuration time.Duration `dl:"%v,time"`
 
 	dl dataLabels
@@ -52,7 +51,7 @@ func getColor(abs float64, i int) (byte, byte, byte) {
 		byte(255 * (c1[2] * t1 + c2[2] * t2))
 }
 
-func (ma *ma)redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
+func (ma *ma)Redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
 	w := pb.GetWidth()
 	h := pb.GetHeight()
 	nc := pb.GetNChannels()
@@ -101,6 +100,8 @@ func (ma *ma)redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
 
 	wg.Wait()
 	ma.LastDuration = time.Since(startt)
+	log.Print(ma.LastDuration)
+	ma.dl.update(*ma)
 }
 
 type datalabel struct {
@@ -151,7 +152,9 @@ func (dl dataLabels)update(obj interface{}) {
 	v := reflect.ValueOf(obj)
 	
 	for _, l := range dl.labels {
-		l.valLabel.SetText(fmt.Sprintf(l.fmt, v.FieldByName(l.name).Interface()))
+		if l.valLabel != nil {
+			l.valLabel.SetText(fmt.Sprintf(l.fmt, v.FieldByName(l.name).Interface()))
+		}
 	}
 }
 
@@ -187,7 +190,7 @@ const build = `
 </interface>
 `
 
-func (ma *ma)buildWidgets() gtk.IWidget {
+func buildWidgets() gtk.IWidget {
 	builder, err := gtk.BuilderNew()
 	if err != nil {
 		log.Fatal(err)
@@ -224,14 +227,15 @@ func (ma *ma)buildWidgets() gtk.IWidget {
 	}
 	allocpb(256, 256)
 
+	ma := newma()
+
 	builder.ConnectSignals(map[string]interface{}{
 		"resize": func(da *gtk.DrawingArea, p uintptr) {
 			rect := gdk.WrapRectangle(p)
 			allocpb(rect.GetWidth(), rect.GetHeight())
 		},
 		"drawArea": func(da *gtk.DrawingArea, cr *cairo.Context) {
-			ma.redraw(cx, cy, zw, pb)
-			ma.dl.update(*ma)
+			ma.Redraw(cx, cy, zw, pb)
 			gtk.GdkCairoSetSourcePixBuf(cr, pb, 0, 0)
 			cr.Paint()
 		},
@@ -291,9 +295,7 @@ func main() {
 	}
 	win.Connect("destroy", gtk.MainQuit)
 
-	ma := newma()
-
-	win.Add(ma.buildWidgets())
+	win.Add(buildWidgets())
 	win.ShowAll()
 
 	gtk.Main()
