@@ -9,6 +9,11 @@ import (
 	"log"
 )
 
+type Drawer interface {
+	PopulateLabels(lp LabelPopulator)
+	Redraw(cx, cy, zw float64, pb *gdk.Pixbuf)
+}
+
 type ma struct {
 	Iter int `dl:"%d"`
 	LastDuration time.Duration `dl:"%v,time"`
