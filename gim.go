@@ -51,6 +51,21 @@ func getColor(abs float64, i int) (byte, byte, byte) {
 		byte(255 * (c1[2] * t1 + c2[2] * t2))
 }
 
+
+
+func colorAt(c complex128, iter int) (byte, byte, byte) {
+	z := c
+	for i := 0; i < iter; i++ {
+		re, im := real(z), imag(z)
+		l := re * re + im * im
+		if l > 4.0 {
+			return getColor(l, i)
+		}
+		z = z * z + c
+	}
+	return 0, 0, 0
+}
+
 func (ma *ma)Redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
 	w := pb.GetWidth()
 	h := pb.GetHeight()
@@ -79,19 +94,7 @@ func (ma *ma)Redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
 				for x := 0; x < w; x++ {
 					cr := cx - (zw / 2) + float64(x) * sx
 					o := y * rs + x * nc
-
-					c := complex(cr, ci)
-					z := c
-					px[o], px[o + 1], px[o +2] = 0, 0, 0
-					for i := 0; i < ma.Iter; i++ {
-						re, im := real(z), imag(z)
-						l := re * re + im * im
-						if l > 4.0 {
-							px[o], px[o + 1], px[o + 2] = getColor(l, i)
-							break
-						}
-						z = z * z + c
-					}
+					px[o], px[o + 1], px[o +2] = colorAt(complex(cr, ci), ma.Iter)
 				}
 			}
 			wg.Done()
