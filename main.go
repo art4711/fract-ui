@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"gim/gim"
 	"math"
+	"time"
 )
 
 const build = `
@@ -81,6 +82,8 @@ type drawControl struct {
 	Mpxw float64 `dl:"%8.4E"`
 	Mpxh float64 `dl:"%8.4E"`
 
+	DrawTime time.Duration `dl:"%v"`
+
 	pb *gdk.Pixbuf
 	dr gim.Drawer
 
@@ -106,10 +109,12 @@ func (dc *drawControl)resize(da *gtk.DrawingArea, p uintptr) {
 }
 
 func (dc *drawControl)drawArea(da *gtk.DrawingArea, cr *cairo.Context) {
-	dc.dl.Update(*dc)		// maybe not here?
+	st := time.Now()
 	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, dc.pb)
 	gtk.GdkCairoSetSourcePixBuf(cr, dc.pb, 0, 0)
 	cr.Paint()
+	dc.DrawTime = time.Since(st)
+	dc.dl.Update(*dc)		// maybe not here?
 }
 
 func (dc *drawControl)moveTo(win *gtk.Window, ev *gdk.Event) {
