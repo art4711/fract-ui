@@ -7,6 +7,7 @@ import (
 	"log"
 	"runtime"
 	"gim/gim"
+	"math"
 )
 
 const build = `
@@ -76,6 +77,10 @@ type drawControl struct {
 	Cy float64 `dl:"%8.4E"`
 	Zw float64 `dl:"%8.4E"`
 
+	Pxw float64 `dl:"%8.4E"`
+	Mpxw float64 `dl:"%8.4E"`
+	Mpxh float64 `dl:"%8.4E"`
+
 	pb *gdk.Pixbuf
 	dr gim.Drawer
 
@@ -120,7 +125,7 @@ func (dc *drawControl)zoomTo(win *gtk.Window, ev *gdk.Event) {
 	if delta > 0.5 {
 		delta = 0.5
 	}
-	delta *= (dc.Zw / 5.0)
+	delta *= (dc.Zw / 1.0)
 
 	switch e.Direction() {
 	case gdk.SCROLL_UP:
@@ -132,9 +137,32 @@ func (dc *drawControl)zoomTo(win *gtk.Window, ev *gdk.Event) {
 	}
 
 	// We want the screen to canvas translated coordinate be the same before and after the zoom.
-	dc.Cx += delta * (0.5 - e.X() / float64(dc.pb.GetWidth() - 1))
-	dc.Cy += delta * (0.5 - e.Y() / float64(dc.pb.GetHeight() - 1)) // assumes square pb
-	dc.Zw += delta
+	ncx := dc.Cx + delta * (0.5 - e.X() / float64(dc.pb.GetWidth() - 1))
+	ncy := dc.Cy + delta * (0.5 - e.Y() / float64(dc.pb.GetHeight() - 1)) // assumes square pb
+	nzw := dc.Zw + delta
+
+	pxw := nzw / float64(dc.pb.GetWidth())		// pixel width
+	mpxw := math.Abs(math.Nextafter(ncx, 0.0) - ncx)	// representable pixel width
+	mpxh := math.Abs(math.Nextafter(ncy, 0.0) - ncy)	// representable pixel height
+
+	if (delta < 0.0) && (pxw < (mpxw * 8.0) || pxw < (mpxh * 8.0)) {
+		/*
+		 * At high enough zoom levels we can no longer represent the numbers correctly enough.
+		 * We calculate the width of one pixel (zw / width in pixels) and compare that to the
+		 * precision we can iterate over floating point numbers at these coordinates. If we
+		 * hit the limit, we no longer
+		 * allow the zoom.
+		 */
+		return
+	}
+
+	dc.Cx = ncx
+	dc.Cy = ncy
+	dc.Zw = nzw
+	dc.Pxw = pxw
+	dc.Mpxw = mpxw
+	dc.Mpxh = mpxh
+
 	win.QueueDraw()
 }
 
