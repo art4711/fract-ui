@@ -101,9 +101,9 @@ func (ma *ma)Redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
 	wg.Wait()
 	ma.LastDuration = time.Since(startt)
 	log.Print(ma.LastDuration)
-	ma.dl.update(*ma)
+	ma.dl.Update(*ma)
 }
 
 func (ma *ma)PopulateLabels(lp LabelPopulator) {
-	ma.dl.populate(*ma, lp)
+	ma.dl.Populate(*ma, lp)
 }

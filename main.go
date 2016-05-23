@@ -32,16 +32,18 @@ const build = `
       </packing>
     </child>
 
-   <child>
-     <object class="GtkGrid" id="controlLabels">
-     </object>
-   </child>
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkGrid" id="controlLabels" />
+        </child>
 
-   <child>
-     <object class="GtkGrid" id="imageLabels">
-     </object>
-   </child>
-
+        <child>
+          <object class="GtkGrid" id="imageLabels" />
+        </child>
+      </object>
+    </child>
   </object>
 </interface>
 `
@@ -70,9 +72,14 @@ func (lp *labelPopulator)AddKV(key string, kw, vw int) (gim.Label, gim.Label) {
 }
 
 type drawControl struct {
-	cx, cy, zw float64
+	Cx float64 `dl:"%8.4E"`
+	Cy float64 `dl:"%8.4E"`
+	Zw float64 `dl:"%8.4E"`
+
 	pb *gdk.Pixbuf
 	dr gim.Drawer
+
+	dl gim.DataLabels
 }
 
 func (dc *drawControl)allocpb(nw, nh int) {
@@ -94,15 +101,16 @@ func (dc *drawControl)resize(da *gtk.DrawingArea, p uintptr) {
 }
 
 func (dc *drawControl)drawArea(da *gtk.DrawingArea, cr *cairo.Context) {
-	dc.dr.Redraw(dc.cx, dc.cy, dc.zw, dc.pb)
+	dc.dl.Update(*dc)		// maybe not here?
+	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, dc.pb)
 	gtk.GdkCairoSetSourcePixBuf(cr, dc.pb, 0, 0)
 	cr.Paint()
 }
 
 func (dc *drawControl)moveTo(win *gtk.Window, ev *gdk.Event) {
 	e := &gdk.EventButton{ev}
-	dc.cx = dc.cx - (dc.zw / 2) + e.X() * dc.zw / float64(dc.pb.GetWidth() - 1)
-	dc.cy = dc.cy - (dc.zw / 2) + e.Y() * dc.zw / float64(dc.pb.GetHeight() - 1)		// assumes square pb
+	dc.Cx = dc.Cx - (dc.Zw / 2) + e.X() * dc.Zw / float64(dc.pb.GetWidth() - 1)
+	dc.Cy = dc.Cy - (dc.Zw / 2) + e.Y() * dc.Zw / float64(dc.pb.GetHeight() - 1)		// assumes square pb
 	win.QueueDraw()
 }
 
@@ -112,7 +120,7 @@ func (dc *drawControl)zoomTo(win *gtk.Window, ev *gdk.Event) {
 	if delta > 0.5 {
 		delta = 0.5
 	}
-	delta *= (dc.zw / 5.0)
+	delta *= (dc.Zw / 5.0)
 
 	switch e.Direction() {
 	case gdk.SCROLL_UP:
@@ -124,9 +132,9 @@ func (dc *drawControl)zoomTo(win *gtk.Window, ev *gdk.Event) {
 	}
 
 	// We want the screen to canvas translated coordinate be the same before and after the zoom.
-	dc.cx += delta * (0.5 - e.X() / float64(dc.pb.GetWidth() - 1))
-	dc.cy += delta * (0.5 - e.Y() / float64(dc.pb.GetHeight() - 1)) // assumes square pb
-	dc.zw += delta
+	dc.Cx += delta * (0.5 - e.X() / float64(dc.pb.GetWidth() - 1))
+	dc.Cy += delta * (0.5 - e.Y() / float64(dc.pb.GetHeight() - 1)) // assumes square pb
+	dc.Zw += delta
 	win.QueueDraw()
 }
 
@@ -149,7 +157,7 @@ func buildWidgets() gtk.IWidget {
 	// XXX - how do we set this property in the xml?
 	eb.AddEvents(int(gdk.SCROLL_MASK))
 
-	dc := &drawControl{ cx : -0.5, cy: 0.0, zw: 3.0, dr: gim.Newma() }
+	dc := &drawControl{ Cx : -0.5, Cy: 0.0, Zw: 3.0, dr: gim.Newma() }
 	dc.allocpb(256, 256)
 
 	builder.ConnectSignals(map[string]interface{}{
@@ -164,6 +172,12 @@ func buildWidgets() gtk.IWidget {
 		log.Fatal(err)
 	}
 	dc.dr.PopulateLabels(&labelPopulator{gr: gri.(*gtk.Grid)})
+
+	gri, err = builder.GetObject("controlLabels")
+	if err != nil {
+		log.Fatal(err)
+	}
+	dc.dl.Populate(*dc, &labelPopulator{gr: gri.(*gtk.Grid)})
 
 	obj, err := builder.GetObject("everything")
 	if err != nil {

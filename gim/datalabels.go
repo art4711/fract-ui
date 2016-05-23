@@ -32,7 +32,7 @@ type DataLabels struct {
 	labels []datalabel
 }
 
-func (dl *DataLabels)populate(src interface{}, populator LabelPopulator) {
+func (dl *DataLabels)Populate(src interface{}, populator LabelPopulator) {
 
 	srcv := reflect.ValueOf(src)
 	srct := srcv.Type()
@@ -53,7 +53,7 @@ func (dl *DataLabels)populate(src interface{}, populator LabelPopulator) {
 	}
 }
 
-func (dl DataLabels)update(obj interface{}) {
+func (dl DataLabels)Update(obj interface{}) {
 	v := reflect.ValueOf(obj)
 	
 	for _, l := range dl.labels {
