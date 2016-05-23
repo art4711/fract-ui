@@ -3,7 +3,6 @@ package gim
 import (
 	"math"
 	"github.com/gotk3/gotk3/gdk"
-	"github.com/gotk3/gotk3/gtk"
 	"time"
 	"sync"
 	"runtime"
@@ -100,6 +99,6 @@ func (ma *ma)Redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
 	ma.dl.update(*ma)
 }
 
-func (ma *ma)PopulateLabels(gr *gtk.Grid) {
-	ma.dl.populate(*ma, gr)
+func (ma *ma)PopulateLabels(lp LabelPopulator) {
+	ma.dl.populate(*ma, lp)
 }

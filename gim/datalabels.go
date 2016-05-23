@@ -1,33 +1,38 @@
 package gim
 
 import (
-	"github.com/gotk3/gotk3/gtk"
 	"reflect"
-	"log"
 	"strings"
 	"fmt"
 )
 
+/*
+ * Instead of gtk we should solve this with more generic interfaces.
+ *
+ * The labels themselves should be interface { SetText(string) }
+ * The grid should be replaced by something that allocates two labels.
+ */
+
+type Label interface {
+	SetText(string)
+}
+
+type LabelPopulator interface {
+	AddKV(string, int, int) (Label, Label)
+}
+
 type datalabel struct {
 	name string
 	fmt string
-	keyLabel *gtk.Label
-	valLabel *gtk.Label
+	keyLabel Label
+	valLabel Label
 }
 
 type DataLabels struct {
 	labels []datalabel
 }
 
-func (dl *DataLabels)populate(src interface{}, gr *gtk.Grid) {
-	l := func(s string) *gtk.Label {
-		label, err := gtk.LabelNew(s)
-		if err != nil {
-			log.Fatal(err)
-		}
-		label.SetWidthChars(10)
-		return label
-	}
+func (dl *DataLabels)populate(src interface{}, populator LabelPopulator) {
 
 	srcv := reflect.ValueOf(src)
 	srct := srcv.Type()
@@ -43,12 +48,8 @@ func (dl *DataLabels)populate(src interface{}, gr *gtk.Grid) {
 		if len(tags) == 2 {
 			ln = tags[1]
 		}
-		dl.labels = append(dl.labels, datalabel{ fmt: tags[0], name: ft.Name, keyLabel: l(ln), valLabel: l("") })
-	}
-
-	for i := range dl.labels {
-		gr.Attach(dl.labels[i].keyLabel, 0, i, 1, 1)
-		gr.Attach(dl.labels[i].valLabel, 1, i, 1, 1)		
+		kl, vl := populator.AddKV(ln, 10, 10)
+		dl.labels = append(dl.labels, datalabel{ fmt: tags[0], name: ft.Name, keyLabel: kl, valLabel: vl })
 	}
 }
 

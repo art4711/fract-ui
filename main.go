@@ -41,6 +41,29 @@ const build = `
 </interface>
 `
 
+type labelPopulator struct {
+	gr *gtk.Grid
+	count int
+}
+
+func (lp *labelPopulator)AddKV(key string, kw, vw int) (gim.Label, gim.Label) {
+	l := func(s string, w int) *gtk.Label {
+		label, err := gtk.LabelNew(s)
+		if err != nil {
+			log.Fatal(err)
+		}
+		label.SetWidthChars(w)
+		return label
+	}
+
+	kl := l(key, kw)
+	vl := l("", vw)
+	lp.gr.Attach(kl, 0, lp.count, 1, 1)
+	lp.gr.Attach(vl, 1, lp.count, 1, 1)
+	lp.count++
+	return kl, vl
+}
+
 func buildWidgets() gtk.IWidget {
 	builder, err := gtk.BuilderNew()
 	if err != nil {
@@ -125,9 +148,7 @@ func buildWidgets() gtk.IWidget {
 	if err != nil {
 		log.Fatal(err)
 	}
-	gr := gri.(*gtk.Grid)
-
-	ma.PopulateLabels(gr)
+	ma.PopulateLabels(&labelPopulator{gr: gri.(*gtk.Grid)})
 
 	obj, err := builder.GetObject("everything")
 	if err != nil {
