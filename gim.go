@@ -5,161 +5,9 @@ import (
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"log"
-//	"math/cmplx"
-	"fmt"
-	"math"
-	"time"
-	"sync"
 	"runtime"
-	"reflect"
-	"strings"
+	"gim/gim"
 )
-
-type ma struct {
-	Iter int `dl:"%d"`
-	LastDuration time.Duration `dl:"%v,time"`
-
-	dl dataLabels
-}
-
-func newma() *ma {
-	ma := &ma{}
-	return ma
-}
-
-var palette = [...][3]float64{
-	{ 1.00, 0.00, 0.00 },
-	{ 1.00, 1.00, 0.00 },
-	{ 0.00, 1.00, 1.00 },
-}
-
-var log_escape = math.Log(2)
-
-func getColor(abs float64, i int) (byte, byte, byte) {
-	mu := float64(i + 1) - math.Log(math.Log(abs)) / log_escape
-	mu /= 16
-	clr1 := int(mu)
-
-	t2 := mu - float64(clr1)
-	t1 := 1.0 - t2
-
-	c1 := palette[clr1 % len(palette)]
-	c2 := palette[(clr1 + 1) % len(palette)]
-
-	return byte(255 * (c1[0] * t1 + c2[0] * t2)),
-		byte(255 * (c1[1] * t1 + c2[1] * t2)),
-		byte(255 * (c1[2] * t1 + c2[2] * t2))
-}
-
-
-
-func colorAt(c complex128, iter int) (byte, byte, byte) {
-	z := c
-	for i := 0; i < iter; i++ {
-		re, im := real(z), imag(z)
-		l := re * re + im * im
-		if l > 4.0 {
-			return getColor(l, i)
-		}
-		z = z * z + c
-	}
-	return 0, 0, 0
-}
-
-func (ma *ma)Redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
-	w := pb.GetWidth()
-	h := pb.GetHeight()
-	nc := pb.GetNChannels()
-	rs := pb.GetRowstride()
-	px := pb.GetPixels()
-
-	aspect := float64(h) / float64(w)
-
-	sx := zw / float64(w - 1)
-	sy := zw * aspect / float64(h - 1)
-
-	// http://math.stackexchange.com/a/30560
-	ma.Iter = int(math.Sqrt(math.Abs(2.0 * math.Sqrt(math.Abs(1 - math.Sqrt(5.0 / zw))))) * 66.5)
-
-	startt := time.Now()
-
-	var wg sync.WaitGroup
-
-	steps := runtime.NumCPU()
-	for i := 0; i < steps; i++ {
-		wg.Add(1)
-		go func(starty, endy int) {
-			for y := starty; y < endy; y++ {
-				ci := cy - (zw * aspect / 2) + float64(y) * sy
-				for x := 0; x < w; x++ {
-					cr := cx - (zw / 2) + float64(x) * sx
-					o := y * rs + x * nc
-					px[o], px[o + 1], px[o +2] = colorAt(complex(cr, ci), ma.Iter)
-				}
-			}
-			wg.Done()
-		}(i * h / steps, (i + 1) * h / steps)
-	}
-
-	wg.Wait()
-	ma.LastDuration = time.Since(startt)
-	log.Print(ma.LastDuration)
-	ma.dl.update(*ma)
-}
-
-type datalabel struct {
-	name string
-	fmt string
-	keyLabel *gtk.Label
-	valLabel *gtk.Label
-}
-
-type dataLabels struct {
-	labels []datalabel
-}
-
-func (dl *dataLabels)populate(src interface{}, gr *gtk.Grid) {
-	l := func(s string) *gtk.Label {
-		label, err := gtk.LabelNew(s)
-		if err != nil {
-			log.Fatal(err)
-		}
-		label.SetWidthChars(10)
-		return label
-	}
-
-	srcv := reflect.ValueOf(src)
-	srct := srcv.Type()
-
-	for i := 0; i < srct.NumField(); i++ {
-		ft := srct.Field(i)
-		tags := strings.SplitN(ft.Tag.Get("dl"), ",", 2)
-		if tags[0] == "" {
-			continue
-		}
-
-		ln := ft.Name
-		if len(tags) == 2 {
-			ln = tags[1]
-		}
-		dl.labels = append(dl.labels, datalabel{ fmt: tags[0], name: ft.Name, keyLabel: l(ln), valLabel: l("") })
-	}
-
-	for i := range dl.labels {
-		gr.Attach(dl.labels[i].keyLabel, 0, i, 1, 1)
-		gr.Attach(dl.labels[i].valLabel, 1, i, 1, 1)		
-	}
-}
-
-func (dl dataLabels)update(obj interface{}) {
-	v := reflect.ValueOf(obj)
-	
-	for _, l := range dl.labels {
-		if l.valLabel != nil {
-			l.valLabel.SetText(fmt.Sprintf(l.fmt, v.FieldByName(l.name).Interface()))
-		}
-	}
-}
 
 const build = `
 <interface>
@@ -230,7 +78,7 @@ func buildWidgets() gtk.IWidget {
 	}
 	allocpb(256, 256)
 
-	ma := newma()
+	ma := gim.Newma()
 
 	builder.ConnectSignals(map[string]interface{}{
 		"resize": func(da *gtk.DrawingArea, p uintptr) {
@@ -279,7 +127,7 @@ func buildWidgets() gtk.IWidget {
 	}
 	gr := gri.(*gtk.Grid)
 
-	ma.dl.populate(*ma, gr)
+	ma.PopulateLabels(gr)
 
 	obj, err := builder.GetObject("everything")
 	if err != nil {
