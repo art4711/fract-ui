@@ -1,11 +1,11 @@
 package main
 
 import (
-//	"github.com/gotk3/gotk3/gdk"
 	"github.com/andlabs/ui"
 	"gim/gim"
 	"time"
 	"log"
+	"math"
 )
 
 type labelPopulator struct {
@@ -55,49 +55,28 @@ func (dc *drawControl)allocpb(nw, nh int) {
 }
 
 /*
-func (dc *drawControl)resize(da *gtk.DrawingArea, p uintptr) {
-	rect := gdk.WrapRectangle(p)
-	dc.allocpb(rect.GetWidth(), rect.GetHeight())
-}
-
-func (dc *drawControl)drawArea(da *gtk.DrawingArea, cr *cairo.Context) {
-	st := time.Now()
-	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, dc.pb)
-	gtk.GdkCairoSetSourcePixBuf(cr, dc.pb, 0, 0)
-	cr.Paint()
-	dc.DrawTime = time.Since(st)
-	dc.dl.Update(*dc)		// maybe not here?
-}
-
 func (dc *drawControl)moveTo(win *gtk.Window, ev *gdk.Event) {
 	e := &gdk.EventButton{ev}
 	dc.Cx = dc.Cx - (dc.Zw / 2) + e.X() * dc.Zw / float64(dc.pb.GetWidth() - 1)
 	dc.Cy = dc.Cy - (dc.Zw / 2) + e.Y() * dc.Zw / float64(dc.pb.GetHeight() - 1)		// assumes square pb
 	win.QueueDraw()
 }
-func (dc *drawControl)zoomTo(win *gtk.Window, ev *gdk.Event) {
-	e := &gdk.EventScroll{ev}
-	delta := e.DeltaY()
-	if delta > 0.5 {
-		delta = 0.5
-	}
-	delta *= (dc.Zw / 1.0)
+*/
 
-	switch e.Direction() {
-	case gdk.SCROLL_UP:
+func (dc *drawControl)zoomAt(mx, my, delta float64, out bool) {
+	delta *= -dc.Zw
+	if out {
 		delta = -delta
-	case gdk.SCROLL_DOWN:
-		// nothing
-	default:
-		delta = 0
 	}
+
+	my = float64(dc.bmap.pb.GetHeight()) - my
 
 	// We want the screen to canvas translated coordinate be the same before and after the zoom.
-	ncx := dc.Cx + delta * (0.5 - e.X() / float64(dc.pb.GetWidth() - 1))
-	ncy := dc.Cy + delta * (0.5 - e.Y() / float64(dc.pb.GetHeight() - 1)) // assumes square pb
+	ncx := dc.Cx + delta * (0.5 - mx / float64(dc.bmap.pb.GetWidth() - 1))
+	ncy := dc.Cy + delta * (0.5 - my / float64(dc.bmap.pb.GetHeight() - 1)) // assumes square pb
 	nzw := dc.Zw + delta
 
-	pxw := nzw / float64(dc.pb.GetWidth())		// pixel width
+	pxw := nzw / float64(dc.bmap.pb.GetWidth())		// pixel width
 	mpxw := math.Abs(math.Nextafter(ncx, 0.0) - ncx)	// representable pixel width
 	mpxh := math.Abs(math.Nextafter(ncy, 0.0) - ncy)	// representable pixel height
 
@@ -116,10 +95,7 @@ func (dc *drawControl)zoomTo(win *gtk.Window, ev *gdk.Event) {
 	dc.Pxw = pxw
 	dc.Mpxw = mpxw
 	dc.Mpxh = mpxh
-
-	win.QueueDraw()
 }
-*/
 
 func (dc *drawControl)Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 	st := time.Now()
@@ -130,10 +106,14 @@ func (dc *drawControl)Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 
 	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, dc.bmap.pb)
 
-	nc := dc.bmap.pb.GetNChannels()
 	rs := dc.bmap.pb.GetRowstride()
 	px := dc.bmap.pb.GetPixels()
+	w := dc.bmap.pb.GetWidth()
+	h := dc.bmap.pb.GetHeight()
 
+	dp.Context.ImageRGB(0, 0, w, h, rs, px)
+/*
+	nc := dc.bmap.pb.GetNChannels()
 	br := &ui.Brush{ Type: ui.Solid, A: 1.0, X0: 0, Y0: 0, X1: 1, Y1: 1 }
 	for y := 0; y < dc.bmap.s; y++ {
 		for x := 0; x < dc.bmap.s; x++ {
@@ -141,31 +121,37 @@ func (dc *drawControl)Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 			br.R = float64(px[o + 0]) / 256
 			br.G = float64(px[o + 1]) / 256
 			br.B = float64(px[o + 2]) / 256
-			p := ui.NewPath(0 /*XXX*/)
+			p := ui.NewPath(0) // XXX
 			p.AddRectangle(float64(x), float64(y), 1.0, 1.0)
 			p.End()
 			dp.Context.Fill(p, br)
 		}
 	}
-
+*/
+	
 	dc.DrawTime = time.Since(st)
 	dc.dl.Update(*dc)		// maybe not here?
 }
 
 func (dc *drawControl)MouseEvent(a *ui.Area, me *ui.AreaMouseEvent) {
-	log.Print("mousee", *a, *me)
+	log.Print("mousee", me.X, me.Y, dc.bmap.pb.GetWidth())
+	if me.Up == 1 {
+		dc.zoomAt(me.X, me.Y, 0.2, false)
+		a.QueueRedrawAll()
+	}
+	if me.Up == 3 {
+		dc.zoomAt(me.X, me.Y, 0.2, true)
+		a.QueueRedrawAll()
+	}
 }
 
 func (dc *drawControl)MouseCrossed(a *ui.Area, left bool) {
-	log.Print("mousecr", *a, left)
 }
 
 func (dc *drawControl)DragBroken(a *ui.Area) {
-	log.Print("dragb", *a)
 }
 
 func (dc *drawControl)KeyEvent(a *ui.Area, ke *ui.AreaKeyEvent) bool {
-	log.Print("key", *a, *ke)
 	return false
 }
 

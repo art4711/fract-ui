@@ -1,0 +1,23 @@
+diff --git a/draw.go b/draw.go
+index eb4158d..90da539 100644
+--- a/draw.go
++++ b/draw.go
+@@ -2,6 +2,10 @@
+ 
+ package ui
+ 
++import (
++	"unsafe"
++)
++
+ // #include <stdlib.h>
+ // #include "ui.h"
+ // // TODO figure this one out
+@@ -832,3 +836,7 @@ func (l *TextLayout) Extents() (width float64, height float64) {
+ func (c *DrawContext) Text(x float64, y float64, layout *TextLayout) {
+ 	C.uiDrawText(c.c, C.double(x), C.double(y), layout.l)
+ }
++
++func (c *DrawContext) ImageRGB(x, y float64, w, h, rs int, px []byte) {
++	C.uiDrawPixmap(c.c, C.double(x), C.double(y), C.int(w), C.int(h), C.int(rs), C.uiDrawPixmapTypeRGB, unsafe.Pointer(&px[0]))
++}

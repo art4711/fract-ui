@@ -1,0 +1,58 @@
+diff --git a/darwin/draw.m b/darwin/draw.m
+index 68d02bc..cb1a864 100644
+--- a/darwin/draw.m
++++ b/darwin/draw.m
+@@ -452,3 +452,35 @@ void uiDrawText(uiDrawContext *c, double x, double y, uiDrawTextLayout *layout)
+ {
+ 	doDrawText(c->c, c->height, x, y, layout);
+ }
++
++uiDrawPixmapType uiDrawNativePixmapType(void)
++{
++	return uiDrawPixmapTypeRGBA;
++}
++
++void uiDrawPixmap(uiDrawContext *c, double x, double y, int width, int height, int rowstride, uiDrawPixmapType type, void *data)
++{
++	CGBitmapInfo binfo = 0;//kCGBitmapByteOrderDefault;
++	int bpp = 0;
++	switch (type) {
++	case uiDrawPixmapTypeRGB:
++		binfo |= kCGImageAlphaNone;
++		bpp = 24;
++		break;
++	case uiDrawPixmapTypeRGBA:
++		binfo |= kCGImageAlphaLast;
++		bpp = 32;
++		break;
++	default:
++		userbug("uiDrawPixmap unsupported type %u", type);
++	}
++
++	// XXX - Is it safe to assume that the provided data will be consumed and not
++	//       retained after this call? Intuitively it feels safe.
++
++	CGContextDrawImage(c->c, CGRectMake(x, y, width, height),
++		CGImageCreate(width, height, 8, bpp, rowstride,
++			CGColorSpaceCreateDeviceRGB(), binfo,
++			CGDataProviderCreateWithData(NULL, data, rowstride * height, NULL),
++			NULL, false, kCGRenderingIntentDefault));
++}
+diff --git a/ui.h b/ui.h
+index ad847b5..28455b3 100644
+--- a/ui.h
++++ b/ui.h
+@@ -420,6 +420,13 @@ _UI_EXTERN void uiDrawClip(uiDrawContext *c, uiDrawPath *path);
+ _UI_EXTERN void uiDrawSave(uiDrawContext *c);
+ _UI_EXTERN void uiDrawRestore(uiDrawContext *c);
+ 
++_UI_ENUM(uiDrawPixmapType) {
++	uiDrawPixmapTypeRGB,
++	uiDrawPixmapTypeRGBA,
++};
++
++_UI_EXTERN void uiDrawPixmap(uiDrawContext *c, double x, double y, int width, int height, int rowstride, uiDrawPixmapType type, void *data);
++
+ // TODO manage the use of Text, Font, and TextFont, and of the uiDrawText prefix in general
+ 
+ ///// TODO

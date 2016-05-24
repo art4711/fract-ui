@@ -13,16 +13,18 @@ type Pixbuf interface {
 	GetHeight() int
 }
 
+const bpp = 4
+
 func NewPixbuf(h, w int) Pixbuf {
-	return &pb{ h: h, w: w, px: make([]byte, 3*h*w) }
+	return &pb{ h: h, w: w, px: make([]byte, bpp*h*w) }
 }
 
 func (pb *pb)GetNChannels() int {
-	return 3
+	return bpp
 }
 
 func (pb *pb)GetRowstride() int {
-	return pb.w*3
+	return pb.w*bpp
 }
 
 func (pb *pb)GetPixels() []byte {
