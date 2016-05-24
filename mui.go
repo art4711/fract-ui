@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/gotk3/gotk3/gdk"
+//	"github.com/gotk3/gotk3/gdk"
 	"github.com/andlabs/ui"
 	"gim/gim"
 	"time"
@@ -37,7 +37,7 @@ type drawControl struct {
 
 	bmap struct {
 		s int		/* square for now */
-		pb *gdk.Pixbuf
+		pb gim.Pixbuf
 	}
 
 	dr gim.Drawer
@@ -50,11 +50,7 @@ func (dc *drawControl)allocpb(nw, nh int) {
 	if s > nh {
 		s = nh
 	}
-	pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, s, s)
-	if err != nil {
-		log.Fatal("pixbuf: ", err)
-	}
-	dc.bmap.pb = pb
+	dc.bmap.pb = gim.NewPixbuf(s, s)
 	dc.bmap.s = s
 }
 

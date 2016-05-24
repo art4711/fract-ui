@@ -2,7 +2,6 @@ package gim
 
 import (
 	"math"
-	"github.com/gotk3/gotk3/gdk"
 	"time"
 	"sync"
 	"runtime"
@@ -11,7 +10,7 @@ import (
 
 type Drawer interface {
 	PopulateLabels(lp LabelPopulator)
-	Redraw(cx, cy, zw float64, pb *gdk.Pixbuf)
+	Redraw(cx, cy, zw float64, pb Pixbuf)
 }
 
 type ma struct {
@@ -63,7 +62,7 @@ func colorAt(c complex128, iter int) (byte, byte, byte) {
 	return 0, 0, 0
 }
 
-func (ma *ma)Redraw(cx, cy, zw float64, pb *gdk.Pixbuf) {
+func (ma *ma)Redraw(cx, cy, zw float64, pb Pixbuf) {
 	w := pb.GetWidth()
 	h := pb.GetHeight()
 	nc := pb.GetNChannels()
