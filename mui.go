@@ -122,7 +122,6 @@ func (dc *drawControl)zoomTo(win *gtk.Window, ev *gdk.Event) {
 */
 
 func (dc *drawControl)Draw(a *ui.Area, dp *ui.AreaDrawParams) {
-	log.Print("draw", *a, *dp)
 	st := time.Now()
 
 	if int(dp.AreaWidth) != dc.bmap.s && int(dp.AreaHeight) != dc.bmap.s {
@@ -135,20 +134,19 @@ func (dc *drawControl)Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 	rs := dc.bmap.pb.GetRowstride()
 	px := dc.bmap.pb.GetPixels()
 
+	br := &ui.Brush{ Type: ui.Solid, A: 1.0, X0: 0, Y0: 0, X1: 1, Y1: 1 }
 	for y := 0; y < dc.bmap.s; y++ {
-log.Print("foo", y)
 		for x := 0; x < dc.bmap.s; x++ {
 			o := y * rs + x * nc
-			br := &ui.Brush{ Type: ui.Solid, R: float64(px[o + 0]), G: float64(px[o + 1]), B: float64(px[o + 2]), A: 1.0, X0: 0, Y0: 0, X1: 1, Y1: 1 }
+			br.R = float64(px[o + 0]) / 256
+			br.G = float64(px[o + 1]) / 256
+			br.B = float64(px[o + 2]) / 256
 			p := ui.NewPath(0 /*XXX*/)
 			p.AddRectangle(float64(x), float64(y), 1.0, 1.0)
 			p.End()
 			dp.Context.Fill(p, br)
 		}
 	}
-
-//	gtk.GdkCairoSetSourcePixBuf(cr, dc.pb, 0, 0)
-//	cr.Paint()
 
 	dc.DrawTime = time.Since(st)
 	dc.dl.Update(*dc)		// maybe not here?
