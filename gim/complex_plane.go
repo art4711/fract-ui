@@ -13,16 +13,43 @@ type Drawer interface {
 	Redraw(cx, cy, zw float64, pb Pixbuf)
 }
 
-type ma struct {
-	Iter         int           `dl:"%d"`
+type complexPlane struct {
 	LastDuration time.Duration `dl:"%v,time"`
+
+	f Fun
 
 	dl DataLabels
 }
 
-func Newma() *ma {
-	ma := &ma{}
-	return ma
+type Fun interface {
+	Init(width float64)
+	ColorAt(c complex128) uint32
+}
+
+type mandelbrot struct {
+	Iter int
+}
+
+func (ma *mandelbrot)Init(width float64) {
+	// http://math.stackexchange.com/a/30560
+	ma.Iter = int(math.Sqrt(math.Abs(2.0*math.Sqrt(math.Abs(1-math.Sqrt(5.0/width))))) * 66.5)
+}
+
+func (ma *mandelbrot)ColorAt(c complex128) uint32 {
+	z := c
+	for i := 0; i < ma.Iter; i++ {
+		re, im := real(z), imag(z)
+		l := re*re + im*im
+		if l > 4.0 {
+			return getColor(l, i)
+		}
+		z = z*z + c
+	}
+	return 255 << 24
+}
+
+func Newma() Drawer {
+	return &complexPlane{ f: &mandelbrot{} }
 }
 
 var palette = [...][3]float64{
@@ -63,7 +90,7 @@ func colorAt(c complex128, iter int) uint32 {
 	return 255 << 24
 }
 
-func (ma *ma) Redraw(cx, cy, zw float64, pb Pixbuf) {
+func (cp *complexPlane) Redraw(cx, cy, zw float64, pb Pixbuf) {
 	w := pb.GetWidth()
 	h := pb.GetHeight()
 	rs := pb.GetRowstride()
@@ -74,8 +101,8 @@ func (ma *ma) Redraw(cx, cy, zw float64, pb Pixbuf) {
 	sx := zw / float64(w-1)
 	sy := zw * aspect / float64(h-1)
 
-	// http://math.stackexchange.com/a/30560
-	ma.Iter = int(math.Sqrt(math.Abs(2.0*math.Sqrt(math.Abs(1-math.Sqrt(5.0/zw))))) * 66.5)
+	cp.f.Init(zw)
+
 
 	startt := time.Now()
 
@@ -90,7 +117,7 @@ func (ma *ma) Redraw(cx, cy, zw float64, pb Pixbuf) {
 				for x := 0; x < w; x++ {
 					cr := cx - (zw / 2) + float64(x)*sx
 					o := y*rs + x
-					px[o] = colorAt(complex(cr, ci), ma.Iter)
+					px[o] = cp.f.ColorAt(complex(cr, ci))
 				}
 			}
 			wg.Done()
@@ -98,11 +125,11 @@ func (ma *ma) Redraw(cx, cy, zw float64, pb Pixbuf) {
 	}
 
 	wg.Wait()
-	ma.LastDuration = time.Since(startt)
-	log.Print(ma.LastDuration)
-	ma.dl.Update(*ma)
+	cp.LastDuration = time.Since(startt)
+	log.Print(cp.LastDuration)
+	cp.dl.Update(*cp)
 }
 
-func (ma *ma) PopulateLabels(lp LabelPopulator) {
-	ma.dl.Populate(*ma, lp)
+func (cp *complexPlane) PopulateLabels(lp LabelPopulator) {
+	cp.dl.Populate(*cp, lp)
 }
