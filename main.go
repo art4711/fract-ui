@@ -9,6 +9,7 @@ import (
 	"gim/gim"
 	"math"
 	"time"
+	"unsafe"
 )
 
 const build = `
@@ -73,6 +74,32 @@ func (lp *labelPopulator)AddKV(key string, kw, vw int) (gim.Label, gim.Label) {
 	return kl, vl
 }
 
+type pixbufWrap struct {
+	pb *gdk.Pixbuf
+}
+
+func (pw pixbufWrap)GetWidth() int {
+	return pw.pb.GetWidth()
+}
+
+func (pw pixbufWrap)GetHeight() int {
+	return pw.pb.GetHeight()
+}
+
+func (pw pixbufWrap)GetRowstride() int {
+	return pw.pb.GetRowstride() / 4
+}
+
+func (pw pixbufWrap)GetPixels() []uint32 {
+	h := pw.GetHeight()
+	rs := pw.GetRowstride()
+	px := pw.pb.GetPixels()
+	ptr := unsafe.Pointer(&px[0])
+	arrsz := (h * rs)
+	arrp := (*[1000000000]uint32)(ptr)
+	return arrp[:arrsz]
+}
+
 type drawControl struct {
 	Cx float64 `dl:"%8.4E"`
 	Cy float64 `dl:"%8.4E"`
@@ -96,7 +123,7 @@ func (dc *drawControl)allocpb(nw, nh int) {
 	if s > nh {
 		s = nh
 	}
-	pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, false, 8, s, s)
+	pb, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, true, 8, s, s)
 	if err != nil {
 		log.Fatal("pixbuf: ", err)
 	}
@@ -110,7 +137,7 @@ func (dc *drawControl)resize(da *gtk.DrawingArea, p uintptr) {
 
 func (dc *drawControl)drawArea(da *gtk.DrawingArea, cr *cairo.Context) {
 	st := time.Now()
-	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, dc.pb)
+	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, pixbufWrap{dc.pb})
 	gtk.GdkCairoSetSourcePixBuf(cr, dc.pb, 0, 0)
 	cr.Paint()
 	dc.DrawTime = time.Since(st)
