@@ -6,7 +6,7 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 	"log"
 	"runtime"
-	"gim/gim"
+	"github.com/art4711/fract-ui/gim"
 	"math"
 	"time"
 	"unsafe"
