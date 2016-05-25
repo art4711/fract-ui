@@ -3,8 +3,8 @@ package main
 import (
 	"github.com/andlabs/ui"
 	"github.com/art4711/fract-ui/gim"
-	"time"
 	"math"
+	"time"
 )
 
 type labelPopulator struct {
@@ -12,7 +12,7 @@ type labelPopulator struct {
 	lb *ui.Box
 }
 
-func (lp *labelPopulator)AddKV(key string, kw, vw int) (gim.Label, gim.Label) {
+func (lp *labelPopulator) AddKV(key string, kw, vw int) (gim.Label, gim.Label) {
 	box := ui.NewHorizontalBox()
 	kl := ui.NewLabel(key + ": ")
 	vl := ui.NewLabel("")
@@ -28,14 +28,14 @@ type drawControl struct {
 	Cy float64 `dl:"%8.4E"`
 	Zw float64 `dl:"%8.4E"`
 
-	Pxw float64 `dl:"%8.4E"`
+	Pxw  float64 `dl:"%8.4E"`
 	Mpxw float64 `dl:"%8.4E"`
 	Mpxh float64 `dl:"%8.4E"`
 
 	DrawTime time.Duration `dl:"%v"`
 
 	bmap struct {
-		s int		/* square for now */
+		s  int /* square for now */
 		pb *gim.Pb
 	}
 
@@ -43,7 +43,8 @@ type drawControl struct {
 
 	dl gim.DataLabels
 }
-func (dc *drawControl)allocpb(nw, nh int) {
+
+func (dc *drawControl) allocpb(nw, nh int) {
 	// we enforce squareness for now
 	s := nw
 	if s > nh {
@@ -62,27 +63,27 @@ func (dc *drawControl)moveTo(win *gtk.Window, ev *gdk.Event) {
 }
 */
 
-func (dc *drawControl)zoomAt(mx, my, delta float64, out bool) {
+func (dc *drawControl) zoomAt(mx, my, delta float64, out bool) {
 	delta *= -dc.Zw
 	if out {
 		delta = -delta
 	}
 
 	// We want the screen to canvas translated coordinate be the same before and after the zoom.
-	ncx := dc.Cx + delta * (0.5 - mx / float64(dc.bmap.pb.GetWidth() - 1))
-	ncy := dc.Cy + delta * (0.5 - my / float64(dc.bmap.pb.GetHeight() - 1)) // assumes square pb
+	ncx := dc.Cx + delta*(0.5-mx/float64(dc.bmap.pb.GetWidth()-1))
+	ncy := dc.Cy + delta*(0.5-my/float64(dc.bmap.pb.GetHeight()-1)) // assumes square pb
 	nzw := dc.Zw + delta
 
-	pxw := nzw / float64(dc.bmap.pb.GetWidth())		// pixel width
-	mpxw := math.Abs(math.Nextafter(ncx, 0.0) - ncx)	// representable pixel width
-	mpxh := math.Abs(math.Nextafter(ncy, 0.0) - ncy)	// representable pixel height
+	pxw := nzw / float64(dc.bmap.pb.GetWidth())      // pixel width
+	mpxw := math.Abs(math.Nextafter(ncx, 0.0) - ncx) // representable pixel width
+	mpxh := math.Abs(math.Nextafter(ncy, 0.0) - ncy) // representable pixel height
 
-	if (delta < 0.0) && (pxw < (mpxw * 8.0) || pxw < (mpxh * 8.0)) {
-		 // At high enough zoom levels we can no longer represent the numbers correctly enough.
-		 // We calculate the width of one pixel (zw / width in pixels) and compare that to the
-		 // precision we can iterate over floating point numbers at these coordinates. If we
-		 // hit the limit, we no longer
-		 // allow the zoom.
+	if (delta < 0.0) && (pxw < (mpxw*8.0) || pxw < (mpxh*8.0)) {
+		// At high enough zoom levels we can no longer represent the numbers correctly enough.
+		// We calculate the width of one pixel (zw / width in pixels) and compare that to the
+		// precision we can iterate over floating point numbers at these coordinates. If we
+		// hit the limit, we no longer
+		// allow the zoom.
 		return
 	}
 
@@ -94,7 +95,7 @@ func (dc *drawControl)zoomAt(mx, my, delta float64, out bool) {
 	dc.Mpxh = mpxh
 }
 
-func (dc *drawControl)Draw(a *ui.Area, dp *ui.AreaDrawParams) {
+func (dc *drawControl) Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 	st := time.Now()
 
 	if int(dp.AreaWidth) != dc.bmap.s && int(dp.AreaHeight) != dc.bmap.s {
@@ -106,10 +107,10 @@ func (dc *drawControl)Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 	dp.Context.Image(0, 0, dc.bmap.pb)
 
 	dc.DrawTime = time.Since(st)
-	dc.dl.Update(*dc)		// maybe not here?
+	dc.dl.Update(*dc) // maybe not here?
 }
 
-func (dc *drawControl)MouseEvent(a *ui.Area, me *ui.AreaMouseEvent) {
+func (dc *drawControl) MouseEvent(a *ui.Area, me *ui.AreaMouseEvent) {
 	if me.Up == 1 {
 		dc.zoomAt(me.X, me.Y, 0.2, false)
 		a.QueueRedrawAll()
@@ -120,30 +121,30 @@ func (dc *drawControl)MouseEvent(a *ui.Area, me *ui.AreaMouseEvent) {
 	}
 }
 
-func (dc *drawControl)MouseCrossed(a *ui.Area, left bool) {
+func (dc *drawControl) MouseCrossed(a *ui.Area, left bool) {
 }
 
-func (dc *drawControl)DragBroken(a *ui.Area) {
+func (dc *drawControl) DragBroken(a *ui.Area) {
 }
 
-func (dc *drawControl)KeyEvent(a *ui.Area, ke *ui.AreaKeyEvent) bool {
+func (dc *drawControl) KeyEvent(a *ui.Area, ke *ui.AreaKeyEvent) bool {
 	return false
 }
 
 func main() {
 	err := ui.Main(func() {
-		dc := &drawControl{ Cx : -0.5, Cy: 0.0, Zw: 3.0, dr: gim.Newma() }
+		dc := &drawControl{Cx: -0.5, Cy: 0.0, Zw: 3.0, dr: gim.Newma()}
 		dc.allocpb(256, 256)
 
 		mainbox := ui.NewHorizontalBox()
-		group := ui.NewGroup("area")		// The group is necessary for gtk to be less confused.
+		group := ui.NewGroup("area") // The group is necessary for gtk to be less confused.
 		area := ui.NewArea(dc)
 		group.SetChild(area)
 		mainbox.Append(group, true)
 		labelbox := ui.NewVerticalBox()
 		mainbox.Append(labelbox, true)
 
-		lp := &labelPopulator{ lb:labelbox }
+		lp := &labelPopulator{lb: labelbox}
 
 		dc.dr.PopulateLabels(lp)
 		dc.dl.Populate(*dc, lp)

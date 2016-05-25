@@ -1,9 +1,9 @@
 package gim
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
-	"fmt"
 )
 
 /*
@@ -22,8 +22,8 @@ type LabelPopulator interface {
 }
 
 type datalabel struct {
-	name string
-	fmt string
+	name     string
+	fmt      string
 	keyLabel Label
 	valLabel Label
 }
@@ -32,7 +32,7 @@ type DataLabels struct {
 	labels []datalabel
 }
 
-func (dl *DataLabels)Populate(src interface{}, populator LabelPopulator) {
+func (dl *DataLabels) Populate(src interface{}, populator LabelPopulator) {
 
 	srcv := reflect.ValueOf(src)
 	srct := srcv.Type()
@@ -49,17 +49,16 @@ func (dl *DataLabels)Populate(src interface{}, populator LabelPopulator) {
 			ln = tags[1]
 		}
 		kl, vl := populator.AddKV(ln, 10, 10)
-		dl.labels = append(dl.labels, datalabel{ fmt: tags[0], name: ft.Name, keyLabel: kl, valLabel: vl })
+		dl.labels = append(dl.labels, datalabel{fmt: tags[0], name: ft.Name, keyLabel: kl, valLabel: vl})
 	}
 }
 
-func (dl DataLabels)Update(obj interface{}) {
+func (dl DataLabels) Update(obj interface{}) {
 	v := reflect.ValueOf(obj)
-	
+
 	for _, l := range dl.labels {
 		if l.valLabel != nil {
 			l.valLabel.SetText(fmt.Sprintf(l.fmt, v.FieldByName(l.name).Interface()))
 		}
 	}
 }
-

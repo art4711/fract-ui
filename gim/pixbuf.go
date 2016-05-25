@@ -6,7 +6,7 @@ import (
 
 type Pb struct {
 	h, w int
-	px []uint32
+	px   []uint32
 }
 
 type Pixbuf interface {
@@ -17,29 +17,29 @@ type Pixbuf interface {
 }
 
 func NewPixbuf(h, w int) *Pb {
-	return &Pb{ h: h, w: w, px: make([]uint32, h*w) }
+	return &Pb{h: h, w: w, px: make([]uint32, h*w)}
 }
 
-func (pb *Pb)GetRowstride() int {
+func (pb *Pb) GetRowstride() int {
 	return pb.w
 }
 
-func (pb *Pb)GetRowstrideBytes() int {
+func (pb *Pb) GetRowstrideBytes() int {
 	return pb.w * 4
 }
 
-func (pb *Pb)GetPixels() []uint32 {
+func (pb *Pb) GetPixels() []uint32 {
 	return pb.px
 }
 
-func (pb *Pb)GetWidth() int {
+func (pb *Pb) GetWidth() int {
 	return pb.w
 }
 
-func (pb *Pb)GetHeight() int {
+func (pb *Pb) GetHeight() int {
 	return pb.h
 }
 
-func (pb *Pb)GetPixelData() unsafe.Pointer {
+func (pb *Pb) GetPixelData() unsafe.Pointer {
 	return unsafe.Pointer(&pb.px[0])
 }
