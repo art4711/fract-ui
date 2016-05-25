@@ -1,4 +1,4 @@
-# simple mandelbrot #
+# Simple Mandelbrot #
 
 This started as an experiment to build a ui with gotk3 and ended as a
 testbed for implementing some functionality in github.com/andlabs/ui.
@@ -17,3 +17,11 @@ To zoom in the ui version, left-click to zoom in, right-click to zoom
 out. The zoom SHOULD keep the point on the fractal under the mouse in
 the same place before and after the zoom (it's actually a good way to
 test if the libraries correctly translate corrdinates for the mouse).
+
+## dependency ##
+
+The two dependencies to make it work (non-gtk version) are those two
+branches:
+
+https://github.com/art4711/ui/tree/draw-pixmap
+https://github.com/art4711/libui/tree/draw-pixmap
