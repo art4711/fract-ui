@@ -4,7 +4,6 @@ import (
 	"github.com/andlabs/ui"
 	"github.com/art4711/fract-ui/gim"
 	"time"
-	"log"
 	"math"
 )
 
