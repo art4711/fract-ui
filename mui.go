@@ -69,7 +69,7 @@ func (dc *drawControl)zoomAt(mx, my, delta float64, out bool) {
 		delta = -delta
 	}
 
-	my = float64(dc.bmap.pb.GetHeight()) - my
+//	my = float64(dc.bmap.pb.GetHeight()) - my		// darwin and gtk seem to disagree on which corner 0,0 is.
 
 	// We want the screen to canvas translated coordinate be the same before and after the zoom.
 	ncx := dc.Cx + delta * (0.5 - mx / float64(dc.bmap.pb.GetWidth() - 1))
@@ -111,7 +111,7 @@ func (dc *drawControl)Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 	w := dc.bmap.pb.GetWidth()
 	h := dc.bmap.pb.GetHeight()
 
-	dp.Context.ImageRGB(0, 0, w, h, rs, px)
+	dp.Context.ImageARGB(0, 0, w, h, rs, px)
 /*
 	nc := dc.bmap.pb.GetNChannels()
 	br := &ui.Brush{ Type: ui.Solid, A: 1.0, X0: 0, Y0: 0, X1: 1, Y1: 1 }
@@ -161,8 +161,10 @@ func main() {
 		dc.allocpb(256, 256)
 
 		mainbox := ui.NewHorizontalBox()
+		group := ui.NewGroup("area")		// The group is necessary for gtk to be less confused.
 		area := ui.NewArea(dc)
-		mainbox.Append(area, true)
+		group.SetChild(area)
+		mainbox.Append(group, true)
 		labelbox := ui.NewVerticalBox()
 		mainbox.Append(labelbox, true)
 

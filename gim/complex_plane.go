@@ -90,7 +90,8 @@ func (ma *ma)Redraw(cx, cy, zw float64, pb Pixbuf) {
 				for x := 0; x < w; x++ {
 					cr := cx - (zw / 2) + float64(x) * sx
 					o := y * rs + x * nc
-					px[o], px[o + 1], px[o +2] = colorAt(complex(cr, ci), ma.Iter)
+					px[o], px[o + 1], px[o + 2] = colorAt(complex(cr, ci), ma.Iter)
+					px[o + 3] = 255
 				}
 			}
 			wg.Done()
