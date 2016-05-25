@@ -48,8 +48,34 @@ func (ma *mandelbrot)ColorAt(c complex128) uint32 {
 	return 255 << 24
 }
 
+type cubed struct {
+	Iter int
+}
+
+func (cu *cubed)Init(width float64) {
+	// http://math.stackexchange.com/a/30560
+	cu.Iter = int(math.Sqrt(math.Abs(2.0*math.Sqrt(math.Abs(1-math.Sqrt(5.0/width))))) * 66.5)
+}
+
+func (cu *cubed)ColorAt(c complex128) uint32 {
+	z := c
+	for i := 0; i < cu.Iter; i++ {
+		re, im := real(z), imag(z)
+		l := re*re + im*im
+		if l > 4.0 {
+			return getColor(l, i)
+		}
+		z = z*z*z + c
+	}
+	return 255 << 24
+}
+
 func Newma() Drawer {
 	return &complexPlane{ f: &mandelbrot{} }
+}
+
+func Newcu() Drawer {
+	return &complexPlane{ f: &cubed{} }
 }
 
 var palette = [...][3]float64{

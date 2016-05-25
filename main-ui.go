@@ -131,23 +131,47 @@ func (dc *drawControl) KeyEvent(a *ui.Area, ke *ui.AreaKeyEvent) bool {
 	return false
 }
 
+var selections = []struct {
+	name string
+	dr func() gim.Drawer
+}{
+	{ "mandelbrot", gim.Newma },
+	{ "cubed", gim.Newcu },
+}
+
 func main() {
 	err := ui.Main(func() {
 		dc := &drawControl{Cx: -0.5, Cy: 0.0, Zw: 3.0, dr: gim.Newma()}
 		dc.allocpb(256, 256)
 
 		mainbox := ui.NewHorizontalBox()
-		group := ui.NewGroup("area") // The group is necessary for gtk to be less confused.
+
 		area := ui.NewArea(dc)
+
+		cb := ui.NewCombobox()
+		for i := range selections {
+			cb.Append(selections[i].name)
+		}
+		cb.SetSelected(0)
+		cb.OnSelected(func(cb *ui.Combobox) {
+			sel := selections[cb.Selected()]
+			dc.dr = sel.dr()
+			area.QueueRedrawAll()
+		})
+
+		group := ui.NewGroup("area") // The group is necessary for gtk to be less confused.
 		group.SetChild(area)
 		mainbox.Append(group, true)
+
 		labelbox := ui.NewVerticalBox()
-		mainbox.Append(labelbox, true)
+		labelbox.Append(cb, false)
+
 
 		lp := &labelPopulator{lb: labelbox}
 
 		dc.dr.PopulateLabels(lp)
 		dc.dl.Populate(*dc, lp)
+		mainbox.Append(labelbox, true)
 		window := ui.NewWindow("asdf", 400, 400, false)
 		window.SetChild(mainbox)
 		window.OnClosing(func(*ui.Window) bool {
