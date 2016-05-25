@@ -111,7 +111,6 @@ func (dc *drawControl)Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 }
 
 func (dc *drawControl)MouseEvent(a *ui.Area, me *ui.AreaMouseEvent) {
-	log.Print("mousee", me.X, me.Y, dc.bmap.pb.GetWidth())
 	if me.Up == 1 {
 		dc.zoomAt(me.X, me.Y, 0.2, false)
 		a.QueueRedrawAll()
