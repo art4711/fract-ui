@@ -33,7 +33,7 @@ var palette = [...][3]float64{
 
 var log_escape = math.Log(2)
 
-func getColor(abs float64, i int) (byte, byte, byte) {
+func getColor(abs float64, i int) uint32 {
 	mu := float64(i + 1) - math.Log(math.Log(abs)) / log_escape
 	mu /= 16
 	clr1 := int(mu)
@@ -44,12 +44,13 @@ func getColor(abs float64, i int) (byte, byte, byte) {
 	c1 := palette[clr1 % len(palette)]
 	c2 := palette[(clr1 + 1) % len(palette)]
 
-	return byte(255 * (c1[0] * t1 + c2[0] * t2)),
-		byte(255 * (c1[1] * t1 + c2[1] * t2)),
-		byte(255 * (c1[2] * t1 + c2[2] * t2))
+	return 255 << 24 |
+		uint32((c1[0] * t1 + c2[0] * t2) * 255) << 16 |
+		uint32((c1[1] * t1 + c2[1] * t2) * 255) << 8 |
+		uint32((c1[2] * t1 + c2[2] * t2) * 255)
 }
 
-func colorAt(c complex128, iter int) (byte, byte, byte) {
+func colorAt(c complex128, iter int) uint32 {
 	z := c
 	for i := 0; i < iter; i++ {
 		re, im := real(z), imag(z)
@@ -59,7 +60,7 @@ func colorAt(c complex128, iter int) (byte, byte, byte) {
 		}
 		z = z * z + c
 	}
-	return 0, 0, 0
+	return 255 << 24
 }
 
 func (ma *ma)Redraw(cx, cy, zw float64, pb Pixbuf) {
@@ -89,9 +90,7 @@ func (ma *ma)Redraw(cx, cy, zw float64, pb Pixbuf) {
 				for x := 0; x < w; x++ {
 					cr := cx - (zw / 2) + float64(x) * sx
 					o := y * rs + x
-					r, g, b := colorAt(complex(cr, ci), ma.Iter)
-					a := 255
-					px[o] = uint32(a) << 24 | uint32(r) << 16 | uint32(g) << 8 | uint32(b);
+					px[o] = colorAt(complex(cr, ci), ma.Iter)
 				}
 			}
 			wg.Done()
