@@ -37,7 +37,7 @@ type drawControl struct {
 
 	bmap struct {
 		s int		/* square for now */
-		pb gim.Pixbuf
+		pb *gim.Pb
 	}
 
 	dr gim.Drawer
@@ -68,8 +68,6 @@ func (dc *drawControl)zoomAt(mx, my, delta float64, out bool) {
 	if out {
 		delta = -delta
 	}
-
-//	my = float64(dc.bmap.pb.GetHeight()) - my		// darwin and gtk seem to disagree on which corner 0,0 is.
 
 	// We want the screen to canvas translated coordinate be the same before and after the zoom.
 	ncx := dc.Cx + delta * (0.5 - mx / float64(dc.bmap.pb.GetWidth() - 1))
@@ -106,29 +104,8 @@ func (dc *drawControl)Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 
 	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, dc.bmap.pb)
 
-	rs := dc.bmap.pb.GetRowstride()
-	px := dc.bmap.pb.GetPixels()
-	w := dc.bmap.pb.GetWidth()
-	h := dc.bmap.pb.GetHeight()
+	dp.Context.Image(0, 0, dc.bmap.pb)
 
-	dp.Context.ImageARGB(0, 0, w, h, rs, px)
-/*
-	nc := dc.bmap.pb.GetNChannels()
-	br := &ui.Brush{ Type: ui.Solid, A: 1.0, X0: 0, Y0: 0, X1: 1, Y1: 1 }
-	for y := 0; y < dc.bmap.s; y++ {
-		for x := 0; x < dc.bmap.s; x++ {
-			o := y * rs + x * nc
-			br.R = float64(px[o + 0]) / 256
-			br.G = float64(px[o + 1]) / 256
-			br.B = float64(px[o + 2]) / 256
-			p := ui.NewPath(0) // XXX
-			p.AddRectangle(float64(x), float64(y), 1.0, 1.0)
-			p.End()
-			dp.Context.Fill(p, br)
-		}
-	}
-*/
-	
 	dc.DrawTime = time.Since(st)
 	dc.dl.Update(*dc)		// maybe not here?
 }

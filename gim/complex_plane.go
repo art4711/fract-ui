@@ -65,7 +65,6 @@ func colorAt(c complex128, iter int) (byte, byte, byte) {
 func (ma *ma)Redraw(cx, cy, zw float64, pb Pixbuf) {
 	w := pb.GetWidth()
 	h := pb.GetHeight()
-	nc := pb.GetNChannels()
 	rs := pb.GetRowstride()
 	px := pb.GetPixels()
 
@@ -89,9 +88,10 @@ func (ma *ma)Redraw(cx, cy, zw float64, pb Pixbuf) {
 				ci := cy - (zw * aspect / 2) + float64(y) * sy
 				for x := 0; x < w; x++ {
 					cr := cx - (zw / 2) + float64(x) * sx
-					o := y * rs + x * nc
-					px[o], px[o + 1], px[o + 2] = colorAt(complex(cr, ci), ma.Iter)
-					px[o + 3] = 255
+					o := y * rs + x
+					r, g, b := colorAt(complex(cr, ci), ma.Iter)
+					a := 255
+					px[o] = uint32(a) << 24 | uint32(r) << 16 | uint32(g) << 8 | uint32(b);
 				}
 			}
 			wg.Done()

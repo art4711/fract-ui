@@ -1,40 +1,45 @@
 package gim
 
-type pb struct {
+import (
+	"unsafe"
+)
+
+type Pb struct {
 	h, w int
-	px []byte
+	px []uint32
 }
 
 type Pixbuf interface {
-	GetNChannels() int
 	GetRowstride() int
-	GetPixels() []byte
+	GetPixels() []uint32
 	GetWidth() int
 	GetHeight() int
 }
 
-const bpp = 4
-
-func NewPixbuf(h, w int) Pixbuf {
-	return &pb{ h: h, w: w, px: make([]byte, bpp*h*w) }
+func NewPixbuf(h, w int) *Pb {
+	return &Pb{ h: h, w: w, px: make([]uint32, h*w) }
 }
 
-func (pb *pb)GetNChannels() int {
-	return bpp
-}
-
-func (pb *pb)GetRowstride() int {
-	return pb.w*bpp
-}
-
-func (pb *pb)GetPixels() []byte {
-	return pb.px
-}
-
-func (pb *pb)GetWidth() int {
+func (pb *Pb)GetRowstride() int {
 	return pb.w
 }
 
-func (pb *pb)GetHeight() int {
+func (pb *Pb)GetRowstrideBytes() int {
+	return pb.w * 4
+}
+
+func (pb *Pb)GetPixels() []uint32 {
+	return pb.px
+}
+
+func (pb *Pb)GetWidth() int {
+	return pb.w
+}
+
+func (pb *Pb)GetHeight() int {
 	return pb.h
+}
+
+func (pb *Pb)GetPixelData() unsafe.Pointer {
+	return unsafe.Pointer(&pb.px[0])
 }
