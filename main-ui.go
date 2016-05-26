@@ -37,6 +37,7 @@ type drawControl struct {
 	bmap struct {
 		s  int /* square for now */
 		pb *gim.Pb
+		im *ui.Image
 	}
 
 	dr gim.Drawer
@@ -52,6 +53,10 @@ func (dc *drawControl) allocpb(nw, nh int) {
 	}
 	dc.bmap.pb = gim.NewPixbuf(s, s)
 	dc.bmap.s = s
+	if dc.bmap.im != nil {
+		dc.bmap.im.Free()
+	}
+	dc.bmap.im = ui.NewImage(s, s)
 }
 
 /*
@@ -104,7 +109,8 @@ func (dc *drawControl) Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 
 	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, dc.bmap.pb)
 
-	dp.Context.Image(0, 0, dc.bmap.pb)
+	dc.bmap.im.LoadPixmap32Raw(0, 0, dc.bmap.pb)
+	dp.Context.Image(0, 0, dc.bmap.im)
 
 	dc.DrawTime = time.Since(st)
 	dc.dl.Update(*dc) // maybe not here?
