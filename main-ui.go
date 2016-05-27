@@ -5,7 +5,6 @@ import (
 	"github.com/art4711/fract-ui/gim"
 	"math"
 	"time"
-	"image/color"
 )
 
 type labelPopulator struct {
@@ -35,49 +34,24 @@ type drawControl struct {
 
 	DrawTime time.Duration `dl:"%v"`
 
-	image imWrap
+	image *ui.Image
+	image_size int
 
 	dr gim.Drawer
 
 	dl gim.DataLabels
 }
 
-type imWrap struct {
-	im *ui.Image
-	px []byte
-	rs int
-}
-
-func (iw *imWrap) alloc(w, h int) {
+func (dc *drawControl) allocImg(w, h int) {
 	s := w
 	if s > h {
 		s = h
 	}
-	if iw.im != nil && s == iw.GetWidth() {
+	if dc.image != nil && s == dc.image_size {
 		return
 	}
-	if iw.im != nil {
-		iw.im.Free()
-	}
-	iw.im = ui.NewImage(s, s)
-	iw.rs = iw.im.GetRowstride()
-	iw.px = ((*[1<<32]byte)(iw.im.GetPixelsPtr()))[:iw.rs * s]
-}
-
-func (iw *imWrap) GetWidth() int {
-	return iw.im.GetWidth()
-}
-
-func (iw *imWrap) GetHeight() int {
-	return iw.im.GetHeight()
-}
-
-func (iw *imWrap) SetRGBA(x, y int, c color.RGBA) {
-	o := y * iw.rs + x * 4
-	iw.px[o + 0] = c.A
-	iw.px[o + 1] = c.R
-	iw.px[o + 2] = c.G
-	iw.px[o + 3] = c.B
+	dc.image = ui.NewImage(s, s)
+	dc.image_size = s
 }
 
 /*
@@ -90,17 +64,21 @@ func (dc *drawControl)moveTo(win *gtk.Window, ev *gdk.Event) {
 */
 
 func (dc *drawControl) zoomAt(mx, my, delta float64, out bool) {
+	b := dc.image.Bounds()
+	h := b.Max.Y
+	w := b.Max.X
+
 	delta *= -dc.Zw
 	if out {
 		delta = -delta
 	}
 
 	// We want the screen to canvas translated coordinate be the same before and after the zoom.
-	ncx := dc.Cx + delta*(0.5-mx/float64(dc.image.GetWidth()-1))
-	ncy := dc.Cy + delta*(0.5-my/float64(dc.image.GetHeight()-1)) // assumes square pb
+	ncx := dc.Cx + delta*(0.5-mx/float64(w-1))
+	ncy := dc.Cy + delta*(0.5-my/float64(h-1)) // assumes square pb
 	nzw := dc.Zw + delta
 
-	pxw := nzw / float64(dc.image.GetWidth())      // pixel width
+	pxw := nzw / float64(w)      // pixel width
 	mpxw := math.Abs(math.Nextafter(ncx, 0.0) - ncx) // representable pixel width
 	mpxh := math.Abs(math.Nextafter(ncy, 0.0) - ncy) // representable pixel height
 
@@ -124,9 +102,9 @@ func (dc *drawControl) zoomAt(mx, my, delta float64, out bool) {
 func (dc *drawControl) Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 	st := time.Now()
 
-	dc.image.alloc(int(dp.AreaWidth), int(dp.AreaHeight))
-	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, &dc.image)
-	dp.Context.Image(0, 0, dc.image.im)
+	dc.allocImg(int(dp.AreaWidth), int(dp.AreaHeight))
+	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, dc.image)
+	dp.Context.Image(0, 0, dc.image)
 
 	dc.DrawTime = time.Since(st)
 	dc.dl.Update(*dc) // maybe not here?
@@ -164,7 +142,7 @@ var selections = []struct {
 func main() {
 	err := ui.Main(func() {
 		dc := &drawControl{Cx: -0.5, Cy: 0.0, Zw: 3.0, dr: gim.Newma()}
-		dc.image.alloc(256, 256)
+//		dc.image.alloc(256, 256)
 
 		mainbox := ui.NewHorizontalBox()
 

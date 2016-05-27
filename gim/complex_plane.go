@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 	"image/color"
+	"image"
 )
 
 type Pixbuf interface {
-	GetWidth() int
-	GetHeight() int
+	Bounds() image.Rectangle
 	SetRGBA(int, int, color.RGBA)
 }
 
@@ -126,8 +126,9 @@ func colorAt(c complex128, iter int) color.RGBA {
 }
 
 func (cp *complexPlane) Redraw(cx, cy, zw float64, pb Pixbuf) {
-	w := pb.GetWidth()
-	h := pb.GetHeight()
+	b := pb.Bounds()
+	w := b.Max.X
+	h := b.Max.Y
 
 	aspect := float64(h) / float64(w)
 
