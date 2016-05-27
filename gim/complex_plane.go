@@ -7,17 +7,12 @@ import (
 	"sync"
 	"time"
 	"image/color"
-	"image"
+	"image/draw"
 )
-
-type Pixbuf interface {
-	Bounds() image.Rectangle
-	SetRGBA(int, int, color.RGBA)
-}
 
 type Drawer interface {
 	PopulateLabels(lp LabelPopulator)
-	Redraw(cx, cy, zw float64, pb Pixbuf)
+	Redraw(cx, cy, zw float64, img draw.Image)
 }
 
 type complexPlane struct {
@@ -125,7 +120,7 @@ func colorAt(c complex128, iter int) color.RGBA {
 	return color.RGBA{ A: 255 }
 }
 
-func (cp *complexPlane) Redraw(cx, cy, zw float64, pb Pixbuf) {
+func (cp *complexPlane) Redraw(cx, cy, zw float64, pb draw.Image) {
 	b := pb.Bounds()
 	w := b.Max.X
 	h := b.Max.Y
@@ -150,7 +145,7 @@ func (cp *complexPlane) Redraw(cx, cy, zw float64, pb Pixbuf) {
 				ci := cy - (zw * aspect / 2) + float64(y)*sy
 				for x := 0; x < w; x++ {
 					cr := cx - (zw / 2) + float64(x)*sx
-					pb.SetRGBA(x, y, cp.f.ColorAt(complex(cr, ci)))
+					pb.Set(x, y, cp.f.ColorAt(complex(cr, ci)))
 				}
 			}
 			wg.Done()
