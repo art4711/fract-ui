@@ -6,7 +6,14 @@ import (
 	"runtime"
 	"sync"
 	"time"
+	"image/color"
 )
+
+type Pixbuf interface {
+	GetWidth() int
+	GetHeight() int
+	SetRGBA(int, int, color.RGBA)
+}
 
 type Drawer interface {
 	PopulateLabels(lp LabelPopulator)
@@ -23,7 +30,7 @@ type complexPlane struct {
 
 type Fun interface {
 	Init(width float64)
-	ColorAt(c complex128) uint32
+	ColorAt(c complex128) color.RGBA
 }
 
 type mandelbrot struct {
@@ -35,7 +42,7 @@ func (ma *mandelbrot)Init(width float64) {
 	ma.Iter = int(math.Sqrt(math.Abs(2.0*math.Sqrt(math.Abs(1-math.Sqrt(5.0/width))))) * 66.5)
 }
 
-func (ma *mandelbrot)ColorAt(c complex128) uint32 {
+func (ma *mandelbrot)ColorAt(c complex128) color.RGBA {
 	z := c
 	for i := 0; i < ma.Iter; i++ {
 		re, im := real(z), imag(z)
@@ -45,7 +52,7 @@ func (ma *mandelbrot)ColorAt(c complex128) uint32 {
 		}
 		z = z*z + c
 	}
-	return 255 << 24
+	return color.RGBA{ A: 255 }
 }
 
 type cubed struct {
@@ -57,7 +64,7 @@ func (cu *cubed)Init(width float64) {
 	cu.Iter = int(math.Sqrt(math.Abs(2.0*math.Sqrt(math.Abs(1-math.Sqrt(5.0/width))))) * 66.5)
 }
 
-func (cu *cubed)ColorAt(c complex128) uint32 {
+func (cu *cubed)ColorAt(c complex128) color.RGBA {
 	z := c
 	for i := 0; i < cu.Iter; i++ {
 		re, im := real(z), imag(z)
@@ -67,7 +74,7 @@ func (cu *cubed)ColorAt(c complex128) uint32 {
 		}
 		z = z*z*z + c
 	}
-	return 255 << 24
+	return color.RGBA{ A: 255 }
 }
 
 func Newma() Drawer {
@@ -86,7 +93,7 @@ var palette = [...][3]float64{
 
 var log_escape = math.Log(2)
 
-func getColor(abs float64, i int) uint32 {
+func getColor(abs float64, i int) color.RGBA {
 	mu := float64(i+1) - math.Log(math.Log(abs))/log_escape
 	mu /= 16
 	clr1 := int(mu)
@@ -97,13 +104,15 @@ func getColor(abs float64, i int) uint32 {
 	c1 := palette[clr1%len(palette)]
 	c2 := palette[(clr1+1)%len(palette)]
 
-	return 255<<24 |
-		uint32((c1[0]*t1+c2[0]*t2)*255)<<16 |
-		uint32((c1[1]*t1+c2[1]*t2)*255)<<8 |
-		uint32((c1[2]*t1+c2[2]*t2)*255)
+	return color.RGBA{
+		A: 255,
+		R: uint8((c1[0]*t1+c2[0]*t2)*255),
+		G: uint8((c1[1]*t1+c2[1]*t2)*255),
+		B: uint8((c1[2]*t1+c2[2]*t2)*255),
+	}
 }
 
-func colorAt(c complex128, iter int) uint32 {
+func colorAt(c complex128, iter int) color.RGBA {
 	z := c
 	for i := 0; i < iter; i++ {
 		re, im := real(z), imag(z)
@@ -113,14 +122,12 @@ func colorAt(c complex128, iter int) uint32 {
 		}
 		z = z*z + c
 	}
-	return 255 << 24
+	return color.RGBA{ A: 255 }
 }
 
 func (cp *complexPlane) Redraw(cx, cy, zw float64, pb Pixbuf) {
 	w := pb.GetWidth()
 	h := pb.GetHeight()
-	rs := pb.GetRowstride()
-	px := pb.GetPixels()
 
 	aspect := float64(h) / float64(w)
 
@@ -142,8 +149,7 @@ func (cp *complexPlane) Redraw(cx, cy, zw float64, pb Pixbuf) {
 				ci := cy - (zw * aspect / 2) + float64(y)*sy
 				for x := 0; x < w; x++ {
 					cr := cx - (zw / 2) + float64(x)*sx
-					o := y*rs + x
-					px[o] = cp.f.ColorAt(complex(cr, ci))
+					pb.SetRGBA(x, y, cp.f.ColorAt(complex(cr, ci)))
 				}
 			}
 			wg.Done()

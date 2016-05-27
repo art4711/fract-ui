@@ -5,6 +5,7 @@ import (
 	"github.com/art4711/fract-ui/gim"
 	"math"
 	"time"
+	"image/color"
 )
 
 type labelPopulator struct {
@@ -34,29 +35,49 @@ type drawControl struct {
 
 	DrawTime time.Duration `dl:"%v"`
 
-	bmap struct {
-		s  int /* square for now */
-		pb *gim.Pb
-		im *ui.Image
-	}
+	image imWrap
 
 	dr gim.Drawer
 
 	dl gim.DataLabels
 }
 
-func (dc *drawControl) allocpb(nw, nh int) {
-	// we enforce squareness for now
-	s := nw
-	if s > nh {
-		s = nh
+type imWrap struct {
+	im *ui.Image
+	px []byte
+	rs int
+}
+
+func (iw *imWrap) alloc(w, h int) {
+	s := w
+	if s > h {
+		s = h
 	}
-	dc.bmap.pb = gim.NewPixbuf(s, s)
-	dc.bmap.s = s
-	if dc.bmap.im != nil {
-		dc.bmap.im.Free()
+	if iw.im != nil && s == iw.GetWidth() {
+		return
 	}
-	dc.bmap.im = ui.NewImage(s, s)
+	if iw.im != nil {
+		iw.im.Free()
+	}
+	iw.im = ui.NewImage(s, s)
+	iw.rs = iw.im.GetRowstride()
+	iw.px = ((*[1<<32]byte)(iw.im.GetPixelsPtr()))[:iw.rs * s]
+}
+
+func (iw *imWrap) GetWidth() int {
+	return iw.im.GetWidth()
+}
+
+func (iw *imWrap) GetHeight() int {
+	return iw.im.GetHeight()
+}
+
+func (iw *imWrap) SetRGBA(x, y int, c color.RGBA) {
+	o := y * iw.rs + x * 4
+	iw.px[o + 0] = c.A
+	iw.px[o + 1] = c.R
+	iw.px[o + 2] = c.G
+	iw.px[o + 3] = c.B
 }
 
 /*
@@ -75,11 +96,11 @@ func (dc *drawControl) zoomAt(mx, my, delta float64, out bool) {
 	}
 
 	// We want the screen to canvas translated coordinate be the same before and after the zoom.
-	ncx := dc.Cx + delta*(0.5-mx/float64(dc.bmap.pb.GetWidth()-1))
-	ncy := dc.Cy + delta*(0.5-my/float64(dc.bmap.pb.GetHeight()-1)) // assumes square pb
+	ncx := dc.Cx + delta*(0.5-mx/float64(dc.image.GetWidth()-1))
+	ncy := dc.Cy + delta*(0.5-my/float64(dc.image.GetHeight()-1)) // assumes square pb
 	nzw := dc.Zw + delta
 
-	pxw := nzw / float64(dc.bmap.pb.GetWidth())      // pixel width
+	pxw := nzw / float64(dc.image.GetWidth())      // pixel width
 	mpxw := math.Abs(math.Nextafter(ncx, 0.0) - ncx) // representable pixel width
 	mpxh := math.Abs(math.Nextafter(ncy, 0.0) - ncy) // representable pixel height
 
@@ -103,14 +124,9 @@ func (dc *drawControl) zoomAt(mx, my, delta float64, out bool) {
 func (dc *drawControl) Draw(a *ui.Area, dp *ui.AreaDrawParams) {
 	st := time.Now()
 
-	if int(dp.AreaWidth) != dc.bmap.s && int(dp.AreaHeight) != dc.bmap.s {
-		dc.allocpb(int(dp.AreaWidth), int(dp.AreaHeight))
-	}
-
-	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, dc.bmap.pb)
-
-	dc.bmap.im.LoadPixmap32Raw(0, 0, dc.bmap.pb)
-	dp.Context.Image(0, 0, dc.bmap.im)
+	dc.image.alloc(int(dp.AreaWidth), int(dp.AreaHeight))
+	dc.dr.Redraw(dc.Cx, dc.Cy, dc.Zw, &dc.image)
+	dp.Context.Image(0, 0, dc.image.im)
 
 	dc.DrawTime = time.Since(st)
 	dc.dl.Update(*dc) // maybe not here?
@@ -148,7 +164,7 @@ var selections = []struct {
 func main() {
 	err := ui.Main(func() {
 		dc := &drawControl{Cx: -0.5, Cy: 0.0, Zw: 3.0, dr: gim.Newma()}
-		dc.allocpb(256, 256)
+		dc.image.alloc(256, 256)
 
 		mainbox := ui.NewHorizontalBox()
 
